@@ -148,6 +148,7 @@ class App:
         name = self.sessions[self.selected].name
         try:
             if show_session_in_pane(name, self.config):
+                focus_right_pane()
                 self._set_status(f"Showing: {name}")
             else:
                 self._set_status("Error: Failed to open pane")
@@ -187,6 +188,7 @@ class App:
             session_candidate = f"claude-{proj.branch.replace('/', '-') or proj.name}"
             if session_exists(session_candidate, self.config):
                 show_session_in_pane(session_candidate, self.config)
+                focus_right_pane()
                 self._set_status(f"Showing: {session_candidate}")
                 self._refresh(stdscr)
                 return
@@ -195,6 +197,7 @@ class App:
 
         if ok:
             show_session_in_pane(result, self.config)
+            focus_right_pane()
             label = "YOLO" if yolo else "Launched"
             self._set_status(f"{label}: {result}")
         else:
