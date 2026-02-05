@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e .
+      - name: Compile check
+        run: python -m py_compile zui/__main__.py zui/app.py zui/config.py zui/discovery.py zui/sessions.py zui/worktrees.py zui/ui/layout.py zui/ui/theme.py zui/ui/widgets.py
+      - name: Run tests
+        run: python -m unittest discover tests

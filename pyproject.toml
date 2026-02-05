@@ -9,7 +9,7 @@ description = "TUI for managing AI coding agents (Claude Code) in tmux sessions"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{ name = "ZUI Contributors" }]
+authors = [{ name = "Thornhill" }]
 keywords = ["claude", "tmux", "tui", "agent", "cli"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -29,5 +29,5 @@ classifiers = [
 zui = "zui.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/zuiproject/zui"
-Issues = "https://github.com/zuiproject/zui/issues"
+Homepage = "https://github.com/thornhill6305/zui"
+Issues = "https://github.com/thornhill6305/zui/issues"

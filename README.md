@@ -15,7 +15,6 @@ A terminal UI for managing [Claude Code](https://docs.anthropic.com/en/docs/clau
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-<!-- screenshot placeholder -->
 
 ## Features
 
