@@ -25,20 +25,26 @@ A terminal UI for managing [Claude Code](https://docs.anthropic.com/en/docs/clau
 - **YOLO mode** — launch Claude with `--dangerously-skip-permissions`
 - **No dependencies** — Python stdlib only (curses), runs anywhere Python + tmux exist
 
-## Requirements
+## Prerequisites
 
-- Python 3.10+
-- tmux
-- git
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
+You need these installed before running ZUI:
+
+| Dependency | Install |
+|---|---|
+| **Python 3.10+** | [python.org](https://www.python.org/downloads/) or your package manager |
+| **tmux** | `sudo apt install tmux` (Debian/Ubuntu) · `brew install tmux` (macOS) · [tmux wiki](https://github.com/tmux/tmux/wiki/Installing) |
+| **git** | `sudo apt install git` (Debian/Ubuntu) · `brew install git` (macOS) · [git-scm.com](https://git-scm.com/downloads) |
+| **Claude Code** | `npm install -g @anthropic-ai/claude-code` · [docs](https://docs.anthropic.com/en/docs/claude-code) |
 
 ## Installation
 
 ```bash
-# From source
-pip install -e .
+# Clone and install
+git clone https://github.com/thornhill6305/zui.git
+cd zui
+pip install .
 
-# Or with pipx
+# Or install in an isolated environment with pipx
 pipx install .
 ```
 
