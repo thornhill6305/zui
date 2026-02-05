@@ -201,6 +201,21 @@ def show_session_in_pane(session_name: str, config: Config) -> bool:
     return result.returncode == 0
 
 
+def get_session_workdir(session_name: str, config: Config) -> Optional[str]:
+    """Get the working directory of a tmux session."""
+    result = subprocess.run(
+        [
+            "tmux", "-S", config.socket,
+            "display-message", "-t", session_name,
+            "-p", "#{pane_current_path}",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    path = result.stdout.strip()
+    return path if path and os.path.isdir(path) else None
+
+
 def session_exists(name: str, config: Config) -> bool:
     """Check if a session exists."""
     result = subprocess.run(

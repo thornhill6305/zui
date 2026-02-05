@@ -91,12 +91,12 @@ def draw_session_row(
 
 def draw_footer(win, height: int, width: int) -> None:
     """Draw bottom help bar."""
-    if width >= 80:
-        footer = " Enter:View | Tab:Focus | n:New | y:YOLO | w:Worktree | x:Kill | q:Quit "
+    if width >= 90:
+        footer = " Enter:View | g:Git | Tab:Focus | n:New | y:YOLO | w:Worktree | x:Kill | q:Quit "
     elif width >= 50:
-        footer = " Ent:View Tab n y w x q "
+        footer = " Ent g:Git Tab n y w x q "
     else:
-        footer = " n y w x q "
+        footer = " Ent g Tab n y w x q "
     attr = curses.color_pair(PAIR_FOOTER)
     safe_addstr(win, height - 1, 0, " " * (width - 1), attr)
     safe_addstr(win, height - 1, max(0, (width - len(footer)) // 2), footer, attr)

@@ -11,13 +11,20 @@ from zui.config import Config
 from zui.discovery import Project, discover_projects
 from zui.sessions import (
     Session,
+    get_session_workdir,
     get_sessions,
     kill_session,
     session_exists,
     show_session_in_pane,
     spawn_session,
 )
-from zui.ui.layout import focus_right_pane, kill_zui_session
+from zui.ui.layout import (
+    focus_right_pane,
+    get_pane_count,
+    kill_bottom_right_pane,
+    kill_zui_session,
+    show_lazygit_pane,
+)
 from zui.ui.theme import init_colors
 from zui.ui.widgets import (
     confirm_dialog,
@@ -47,6 +54,7 @@ class App:
     def run(self, stdscr) -> None:
         """Main curses loop."""
         curses.curs_set(0)
+        curses.set_escdelay(25)
         init_colors()
         stdscr.timeout(self.config.refresh_interval * 1000)
 
@@ -124,6 +132,9 @@ class App:
 
         elif key == ord("x") and self.sessions:
             self._kill_session(stdscr)
+
+        elif key == ord("g") and self.sessions:
+            self._toggle_lazygit(stdscr)
 
         elif key == ord("w"):
             self._create_worktree(stdscr)
@@ -246,6 +257,35 @@ class App:
             self.projects = discover_projects(self.config)
         else:
             self._set_status(f"Error: {result}")
+
+    def _toggle_lazygit(self, stdscr) -> None:
+        num_panes = get_pane_count()
+
+        if num_panes >= 3:
+            # Lazygit is showing — kill it (toggle off)
+            kill_bottom_right_pane()
+            self._set_status("Git: hidden")
+        else:
+            name = self.sessions[self.selected].name
+            workdir = get_session_workdir(name, self.config)
+            if workdir:
+                if num_panes < 2:
+                    # No session shown yet — full 3-pane layout
+                    if show_session_in_pane(name, self.config):
+                        import time
+                        time.sleep(0.2)
+                        show_lazygit_pane(workdir)
+                        self._set_status(f"View + Git: {name}")
+                    else:
+                        self._set_status("Error: Failed to open panes")
+                else:
+                    # Session already shown — add lazygit below
+                    if show_lazygit_pane(workdir):
+                        self._set_status(f"Git: {os.path.basename(workdir)}")
+                    else:
+                        self._set_status("Error: Failed to open lazygit")
+            else:
+                self._set_status("Error: Can't find session workdir")
 
     # ── Helpers ──────────────────────────────────────────────────────
 
