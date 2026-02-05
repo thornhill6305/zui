@@ -104,17 +104,16 @@ def _discover_auto() -> List[Project]:
 
     # 2. Scan home directory for git repos (one level deep)
     home = os.path.expanduser("~")
-    if home != cwd:
-        try:
-            for entry in sorted(os.listdir(home)):
-                full = os.path.join(home, entry)
-                if full in seen_paths:
-                    continue
-                if os.path.isdir(full) and not entry.startswith("."):
-                    if _is_git_dir(full):
-                        _add_repo_and_worktrees(full, projects, seen_paths)
-        except OSError:
-            pass
+    try:
+        for entry in sorted(os.listdir(home)):
+            full = os.path.join(home, entry)
+            if full in seen_paths:
+                continue
+            if os.path.isdir(full) and not entry.startswith("."):
+                if _is_git_dir(full):
+                    _add_repo_and_worktrees(full, projects, seen_paths)
+    except OSError:
+        pass
 
     return projects
 
