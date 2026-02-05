@@ -1,0 +1,265 @@
+"""Main TUI application loop for ZUI."""
+
+from __future__ import annotations
+
+import curses
+import os
+import time
+from typing import List, Optional
+
+from zui.config import Config
+from zui.discovery import Project, discover_projects
+from zui.sessions import (
+    Session,
+    get_sessions,
+    kill_session,
+    session_exists,
+    show_session_in_pane,
+    spawn_session,
+)
+from zui.ui.layout import focus_right_pane, kill_zui_session
+from zui.ui.theme import init_colors
+from zui.ui.widgets import (
+    confirm_dialog,
+    draw_empty_state,
+    draw_footer,
+    draw_header,
+    draw_session_row,
+    draw_status_message,
+    input_dialog,
+    project_picker,
+)
+from zui.worktrees import create_worktree
+
+
+class App:
+    """The ZUI application."""
+
+    def __init__(self) -> None:
+        self.config = Config.load()
+        self.sessions: List[Session] = []
+        self.projects: List[Project] = []
+        self.selected = 0
+        self.last_refresh = 0.0
+        self.status_message = ""
+        self.status_time = 0.0
+
+    def run(self, stdscr) -> None:
+        """Main curses loop."""
+        curses.curs_set(0)
+        init_colors()
+        stdscr.timeout(self.config.refresh_interval * 1000)
+
+        # Initial discovery
+        self.projects = discover_projects(self.config)
+
+        while True:
+            try:
+                self._tick(stdscr)
+            except KeyboardInterrupt:
+                break
+
+    def _tick(self, stdscr) -> None:
+        now = time.time()
+
+        # Clear status after 3s
+        if self.status_message and now - self.status_time > 3:
+            self.status_message = ""
+
+        # Refresh sessions periodically
+        if now - self.last_refresh >= self.config.refresh_interval:
+            self.sessions = get_sessions(self.config)
+            self.last_refresh = now
+            if self.sessions and self.selected >= len(self.sessions):
+                self.selected = len(self.sessions) - 1
+
+        # Draw
+        stdscr.erase()
+        height, width = stdscr.getmaxyx()
+
+        draw_header(stdscr, width)
+
+        if not self.sessions:
+            draw_empty_state(stdscr, height, width)
+        else:
+            for i, session in enumerate(self.sessions):
+                row = 4 + i
+                if row >= height - 3:
+                    break
+                draw_session_row(stdscr, row, session, i == self.selected, width)
+
+        draw_status_message(stdscr, height, width, self.status_message)
+        draw_footer(stdscr, height, width)
+        stdscr.refresh()
+
+        # Input
+        key = stdscr.getch()
+        self._handle_key(stdscr, key)
+
+    def _handle_key(self, stdscr, key: int) -> None:
+        if key == ord("q") or key == 27:
+            kill_zui_session()
+            raise KeyboardInterrupt
+
+        elif key == ord("r"):
+            self._refresh(stdscr)
+
+        elif key == curses.KEY_RESIZE:
+            self._handle_resize(stdscr)
+
+        elif key == curses.KEY_UP and self.sessions:
+            self.selected = max(0, self.selected - 1)
+
+        elif key == curses.KEY_DOWN and self.sessions:
+            self.selected = min(len(self.sessions) - 1, self.selected + 1)
+
+        elif key == ord("\n") and self.sessions:
+            self._view_session(stdscr)
+
+        elif key == ord("n"):
+            self._launch_session(stdscr, yolo=False)
+
+        elif key == ord("y"):
+            self._launch_session(stdscr, yolo=True)
+
+        elif key == ord("x") and self.sessions:
+            self._kill_session(stdscr)
+
+        elif key == ord("w"):
+            self._create_worktree(stdscr)
+
+        elif key == ord("\t"):
+            focus_right_pane()
+
+    # ── Actions ──────────────────────────────────────────────────────
+
+    def _view_session(self, stdscr) -> None:
+        name = self.sessions[self.selected].name
+        try:
+            if show_session_in_pane(name, self.config):
+                self._set_status(f"Showing: {name}")
+            else:
+                self._set_status("Error: Failed to open pane")
+        except Exception as exc:
+            self._set_status(f"Error: {exc}")
+
+    def _launch_session(self, stdscr, yolo: bool) -> None:
+        stdscr.timeout(-1)
+
+        # Refresh projects for the picker
+        self.projects = discover_projects(self.config)
+
+        if not self.projects:
+            # No projects found, ask for a directory
+            title = "New YOLO Session" if yolo else "New Claude Session"
+            workdir = input_dialog(stdscr, title, "Workdir:", os.getcwd())
+            stdscr.timeout(self.config.refresh_interval * 1000)
+            if workdir is None:
+                self._set_status("Cancelled")
+                return
+            workdir = os.path.expanduser(workdir)
+            if not os.path.isdir(workdir):
+                self._set_status(f"Error: {workdir} is not a directory")
+                return
+            ok, result = spawn_session(workdir, self.config, yolo=yolo)
+        else:
+            title = "YOLO Launch" if yolo else "Launch Claude"
+            idx = project_picker(stdscr, self.projects, title)
+            stdscr.timeout(self.config.refresh_interval * 1000)
+            if idx is None:
+                self._set_status("Cancelled")
+                return
+
+            proj = self.projects[idx]
+
+            # If session already exists for this project, just show it
+            session_candidate = f"claude-{proj.branch.replace('/', '-') or proj.name}"
+            if session_exists(session_candidate, self.config):
+                show_session_in_pane(session_candidate, self.config)
+                self._set_status(f"Showing: {session_candidate}")
+                self._refresh(stdscr)
+                return
+
+            ok, result = spawn_session(proj.path, self.config, yolo=yolo)
+
+        if ok:
+            show_session_in_pane(result, self.config)
+            label = "YOLO" if yolo else "Launched"
+            self._set_status(f"{label}: {result}")
+        else:
+            self._set_status(result)
+
+        self._refresh(stdscr)
+
+    def _kill_session(self, stdscr) -> None:
+        name = self.sessions[self.selected].name
+        stdscr.timeout(-1)
+        if confirm_dialog(stdscr, f"Kill {name}?"):
+            if kill_session(name, self.config):
+                self._set_status(f"Killed: {name}")
+            else:
+                self._set_status(f"Error: Failed to kill {name}")
+            self._refresh(stdscr)
+            if self.selected >= len(self.sessions) and self.sessions:
+                self.selected = len(self.sessions) - 1
+        else:
+            self._set_status("Cancelled")
+        self._set_status_time()
+        stdscr.timeout(self.config.refresh_interval * 1000)
+
+    def _create_worktree(self, stdscr) -> None:
+        stdscr.timeout(-1)
+
+        # Pick parent repo
+        self.projects = discover_projects(self.config)
+        # Filter to non-worktree repos only
+        repos = [p for p in self.projects if not p.is_worktree]
+        if not repos:
+            stdscr.timeout(self.config.refresh_interval * 1000)
+            self._set_status("No git repos found")
+            return
+
+        if len(repos) == 1:
+            repo = repos[0]
+        else:
+            idx = project_picker(stdscr, repos, "New Worktree - Pick Repo")
+            if idx is None:
+                stdscr.timeout(self.config.refresh_interval * 1000)
+                self._set_status("Cancelled")
+                return
+            repo = repos[idx]
+
+        # Get branch name
+        branch = input_dialog(stdscr, "New Worktree", "Branch:", "feat/")
+        stdscr.timeout(self.config.refresh_interval * 1000)
+
+        if branch is None or not branch.strip():
+            self._set_status("Cancelled")
+            return
+
+        branch = branch.strip()
+        ok, result = create_worktree(repo.path, branch, self.config)
+
+        if ok:
+            self._set_status(f"Created: {os.path.basename(result)} ({branch})")
+            # Refresh to discover the new worktree
+            self.projects = discover_projects(self.config)
+        else:
+            self._set_status(f"Error: {result}")
+
+    # ── Helpers ──────────────────────────────────────────────────────
+
+    def _refresh(self, stdscr) -> None:
+        self.sessions = get_sessions(self.config)
+        self.last_refresh = time.time()
+
+    def _set_status(self, msg: str) -> None:
+        self.status_message = msg
+        self.status_time = time.time()
+
+    def _set_status_time(self) -> None:
+        self.status_time = time.time()
+
+    def _handle_resize(self, stdscr) -> None:
+        curses.endwin()
+        stdscr.refresh()

@@ -1,0 +1,31 @@
+# ZUI configuration example
+# Place at ~/.config/zui/config.toml or ~/.zui.toml
+
+# Tmux socket path (default: /tmp/zui-claude.sock)
+socket = "/tmp/zui-claude.sock"
+
+# Session list refresh interval in seconds
+refresh_interval = 2
+
+# Project roots — ZUI scans these for git repos and worktrees.
+# If no projects are listed, ZUI auto-discovers repos in cwd and ~.
+
+[[projects]]
+path = "~/myproject"
+# Optional: glob pattern for where worktrees live
+# worktree_pattern = "~/myproject-*"
+
+# [[projects]]
+# path = "~/another-repo"
+
+# Claude CLI flags
+[claude]
+# Args passed to every `claude` invocation
+default_args = []
+# Args passed in YOLO mode (y key)
+yolo_args = ["--dangerously-skip-permissions"]
+
+# Hooks — shell commands run on events
+[hooks]
+# Run after creating a new worktree (cwd = new worktree)
+# post_worktree_create = "npm install && cp ../.env .env"

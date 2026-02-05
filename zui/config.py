@@ -1,0 +1,178 @@
+"""Configuration loading for ZUI.
+
+Supports zero-config mode (auto-detect git repos) and optional
+~/.config/zui/config.toml for explicit project roots and hooks.
+
+Uses only stdlib — parses TOML with tomllib (3.11+) or a minimal fallback.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+
+# Default tmux socket path
+DEFAULT_SOCKET = "/tmp/zui-claude.sock"
+
+# Config search paths (first found wins)
+CONFIG_PATHS = [
+    os.path.expanduser("~/.config/zui/config.toml"),
+    os.path.expanduser("~/.zui.toml"),
+]
+
+
+@dataclass
+class ProjectConfig:
+    path: str
+    worktree_pattern: str = ""
+
+
+@dataclass
+class Config:
+    socket: str = DEFAULT_SOCKET
+    projects: List[ProjectConfig] = field(default_factory=list)
+    default_args: List[str] = field(default_factory=list)
+    yolo_args: List[str] = field(default_factory=lambda: ["--dangerously-skip-permissions"])
+    hook_post_worktree_create: str = ""
+    refresh_interval: int = 2
+
+    @staticmethod
+    def load() -> "Config":
+        """Load config from file or return defaults (zero-config)."""
+        for path in CONFIG_PATHS:
+            if os.path.isfile(path):
+                return _load_toml(path)
+        return Config()
+
+
+def _load_toml(path: str) -> Config:
+    """Parse a TOML config file into a Config object."""
+    data = _parse_toml(path)
+    cfg = Config()
+
+    cfg.socket = data.get("socket", cfg.socket)
+    cfg.refresh_interval = int(data.get("refresh_interval", cfg.refresh_interval))
+
+    # Claude section
+    claude = data.get("claude", {})
+    if isinstance(claude, dict):
+        cfg.default_args = claude.get("default_args", cfg.default_args)
+        cfg.yolo_args = claude.get("yolo_args", cfg.yolo_args)
+
+    # Hooks section
+    hooks = data.get("hooks", {})
+    if isinstance(hooks, dict):
+        cfg.hook_post_worktree_create = hooks.get("post_worktree_create", "")
+
+    # Projects — list of tables
+    projects = data.get("projects", [])
+    if isinstance(projects, list):
+        for proj in projects:
+            if isinstance(proj, dict) and "path" in proj:
+                p = os.path.expanduser(proj["path"])
+                cfg.projects.append(
+                    ProjectConfig(
+                        path=p,
+                        worktree_pattern=proj.get("worktree_pattern", ""),
+                    )
+                )
+
+    return cfg
+
+
+def _parse_toml(path: str) -> Dict:
+    """Parse TOML using tomllib (3.11+) or a minimal fallback parser."""
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        try:
+            import tomli as tomllib  # type: ignore[no-redef]
+        except ModuleNotFoundError:
+            return _minimal_toml_parse(path)
+
+    with open(path, "rb") as f:
+        return tomllib.load(f)
+
+
+def _minimal_toml_parse(path: str) -> Dict:
+    """Bare-bones TOML parser for Python <3.11 without tomli.
+
+    Handles only the subset ZUI needs: key=value, [sections],
+    [[array-of-tables]], strings, lists, integers, booleans.
+    """
+    data: Dict = {}
+    current_section: Optional[str] = None
+    current_array_table: Optional[str] = None
+    current_dict: Dict = data
+
+    with open(path) as f:
+        for raw_line in f:
+            line = raw_line.strip()
+
+            # Skip blanks and comments
+            if not line or line.startswith("#"):
+                continue
+
+            # Array of tables: [[name]]
+            if line.startswith("[[") and line.endswith("]]"):
+                table_name = line[2:-2].strip()
+                current_array_table = table_name
+                current_section = None
+                data.setdefault(table_name, [])
+                new_dict: Dict = {}
+                data[table_name].append(new_dict)
+                current_dict = new_dict
+                continue
+
+            # Table: [name]
+            if line.startswith("[") and line.endswith("]"):
+                section = line[1:-1].strip()
+                current_section = section
+                current_array_table = None
+                data.setdefault(section, {})
+                current_dict = data[section]
+                continue
+
+            # Key = value
+            if "=" in line:
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip()
+                current_dict[key] = _parse_toml_value(val)
+
+    return data
+
+
+def _parse_toml_value(val: str):
+    """Parse a single TOML value."""
+    # Boolean
+    if val == "true":
+        return True
+    if val == "false":
+        return False
+
+    # Integer
+    try:
+        return int(val)
+    except ValueError:
+        pass
+
+    # String (quoted)
+    if (val.startswith('"') and val.endswith('"')) or (
+        val.startswith("'") and val.endswith("'")
+    ):
+        return val[1:-1]
+
+    # Array (simple, single-line)
+    if val.startswith("[") and val.endswith("]"):
+        inner = val[1:-1].strip()
+        if not inner:
+            return []
+        items = []
+        for item in inner.split(","):
+            items.append(_parse_toml_value(item.strip()))
+        return items
+
+    # Bare string fallback
+    return val
