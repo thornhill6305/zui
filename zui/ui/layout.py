@@ -37,14 +37,14 @@ def kill_right_pane() -> None:
         )
 
 
-def show_lazygit_pane(workdir: str) -> bool:
+def show_lazygit_pane(workdir: str, right_width: int = 70, lazygit_height: int = 40) -> bool:
     """Show lazygit in a bottom-right pane for the given workdir."""
     num_panes = get_pane_count()
 
     if num_panes < 2:
         # No session pane yet — open lazygit in the right pane
         result = subprocess.run(
-            ["tmux", "split-window", "-d", "-h", "-l", "70%",
+            ["tmux", "split-window", "-d", "-h", "-l", f"{right_width}%",
              f"cd {workdir} && lazygit"],
             capture_output=True, text=True,
         )
@@ -54,7 +54,7 @@ def show_lazygit_pane(workdir: str) -> bool:
     if num_panes == 2:
         # Session pane exists on right — split it vertically for lazygit below
         result = subprocess.run(
-            ["tmux", "split-window", "-d", "-t", "{right}", "-v", "-l", "40%",
+            ["tmux", "split-window", "-d", "-t", "{right}", "-v", "-l", f"{lazygit_height}%",
              f"cd {workdir} && lazygit"],
             capture_output=True, text=True,
         )
@@ -67,7 +67,7 @@ def show_lazygit_pane(workdir: str) -> bool:
         capture_output=True,
     )
     result = subprocess.run(
-        ["tmux", "split-window", "-d", "-t", "{right}", "-v", "-l", "40%",
+        ["tmux", "split-window", "-d", "-t", "{right}", "-v", "-l", f"{lazygit_height}%",
          f"cd {workdir} && lazygit"],
         capture_output=True, text=True,
     )

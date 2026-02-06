@@ -189,10 +189,10 @@ def show_session_in_pane(session_name: str, config: Config) -> bool:
             capture_output=True,
         )
 
-    # Split horizontally, keep focus on zui (left), 70% for session view
+    # Split horizontally, keep focus on zui (left)
     cmd = f"tmux -S {config.socket} attach -t {session_name}"
     result = subprocess.run(
-        ["tmux", "split-window", "-d", "-h", "-l", "70%", cmd],
+        ["tmux", "split-window", "-d", "-h", "-l", f"{config.layout_right_width}%", cmd],
         capture_output=True,
         text=True,
     )

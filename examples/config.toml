@@ -29,3 +29,10 @@ yolo_args = ["--dangerously-skip-permissions"]
 [hooks]
 # Run after creating a new worktree (cwd = new worktree)
 # post_worktree_create = "npm install && cp ../.env .env"
+
+# Layout — panel sizes (percentages)
+[layout]
+# Right panel width (session view), left (zui list) gets the rest
+right_width = 70
+# Lazygit panel height when shown (as % of right side)
+lazygit_height = 40

@@ -36,6 +36,9 @@ class Config:
     yolo_args: List[str] = field(default_factory=lambda: ["--dangerously-skip-permissions"])
     hook_post_worktree_create: str = ""
     refresh_interval: int = 2
+    # Layout settings (percentages)
+    layout_right_width: int = 70  # Right panel width (session/lazygit), left gets the rest
+    layout_lazygit_height: int = 40  # Lazygit panel height when shown
 
     @staticmethod
     def load() -> "Config":
@@ -53,6 +56,12 @@ def _load_toml(path: str) -> Config:
 
     cfg.socket = data.get("socket", cfg.socket)
     cfg.refresh_interval = int(data.get("refresh_interval", cfg.refresh_interval))
+    
+    # Layout settings
+    layout = data.get("layout", {})
+    if isinstance(layout, dict):
+        cfg.layout_right_width = int(layout.get("right_width", cfg.layout_right_width))
+        cfg.layout_lazygit_height = int(layout.get("lazygit_height", cfg.layout_lazygit_height))
 
     # Claude section
     claude = data.get("claude", {})

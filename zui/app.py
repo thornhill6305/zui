@@ -277,13 +277,13 @@ class App:
                     if show_session_in_pane(name, self.config):
                         import time
                         time.sleep(0.2)
-                        show_lazygit_pane(workdir)
+                        show_lazygit_pane(workdir, self.config.layout_right_width, self.config.layout_lazygit_height)
                         self._set_status(f"View + Git: {name}")
                     else:
                         self._set_status("Error: Failed to open panes")
                 else:
                     # Session already shown — add lazygit below
-                    if show_lazygit_pane(workdir):
+                    if show_lazygit_pane(workdir, self.config.layout_right_width, self.config.layout_lazygit_height):
                         self._set_status(f"Git: {os.path.basename(workdir)}")
                     else:
                         self._set_status("Error: Failed to open lazygit")
