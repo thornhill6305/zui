@@ -33,6 +33,7 @@ from zui.ui.widgets import (
     draw_header,
     draw_session_row,
     draw_status_message,
+    help_dialog,
     input_dialog,
     project_picker,
     settings_dialog,
@@ -142,6 +143,9 @@ class App:
 
         elif key == ord("s"):
             self._open_settings(stdscr)
+
+        elif key == ord("h"):
+            self._open_help(stdscr)
 
         elif key == ord("\t"):
             focus_right_pane()
@@ -307,6 +311,11 @@ class App:
         else:
             stdscr.timeout(self.config.refresh_interval * 1000)
             self._set_status("Settings cancelled")
+
+    def _open_help(self, stdscr) -> None:
+        stdscr.timeout(-1)
+        help_dialog(stdscr)
+        stdscr.timeout(self.config.refresh_interval * 1000)
 
     # ── Helpers ──────────────────────────────────────────────────────
 

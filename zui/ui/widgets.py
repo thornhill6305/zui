@@ -91,14 +91,14 @@ def draw_session_row(
 
 def draw_footer(win, height: int, width: int) -> None:
     """Draw bottom help bar."""
-    if width >= 100:
-        footer = " Enter:View | g:Git | Tab:Focus | n:New | y:YOLO | w:Worktree | s:Settings | x:Kill | q:Quit "
-    elif width >= 70:
-        footer = " Ent:View g:Git Tab:Pane n:New y:YOLO w:Tree s:Set x:Kill q:Quit "
-    elif width >= 50:
-        footer = " Ent g:Git Tab n:New y:Yolo w:Tree s:Set x:Kill q "
+    if width >= 110:
+        footer = " Enter:View | g:Git | Tab:Focus | n:New | y:YOLO | w:Worktree | s:Settings | h:Help | x:Kill | q:Quit "
+    elif width >= 75:
+        footer = " Ent:View g:Git Tab:Pane n:New y:YOLO w:Tree s:Set h:Help x:Kill q:Quit "
+    elif width >= 55:
+        footer = " Ent g:Git Tab n:New y:Yolo w:Tree s h:Help x:Kill q "
     else:
-        footer = " Ent g Tab n y w s x q "
+        footer = " Ent g Tab n y w s h x q "
     attr = curses.color_pair(PAIR_FOOTER)
     safe_addstr(win, height - 1, 0, " " * (width - 1), attr)
     safe_addstr(win, height - 1, max(0, (width - len(footer)) // 2), footer, attr)
@@ -344,3 +344,107 @@ def project_picker(
             selected = min(len(projects) - 1, selected + 1)
         elif key in (ord("\n"), curses.KEY_ENTER):
             return selected
+
+
+def help_dialog(win) -> None:
+    """Show help screen with all keybindings and commands."""
+    help_sections = [
+        ("─── ZUI Keybindings ───", []),
+        ("Navigation", [
+            ("↑/↓", "Move selection up/down"),
+            ("Enter", "View selected session in right pane"),
+            ("Tab", "Focus right pane (session output)"),
+        ]),
+        ("Session Management", [
+            ("n", "New Claude session (pick project)"),
+            ("y", "New YOLO session (auto-accept)"),
+            ("x", "Kill selected session"),
+        ]),
+        ("Git & Worktrees", [
+            ("g", "Toggle lazygit pane"),
+            ("w", "Create new worktree + session"),
+        ]),
+        ("Other", [
+            ("s", "Open settings"),
+            ("r", "Refresh session list"),
+            ("h", "This help screen"),
+            ("q/Esc", "Quit ZUI"),
+        ]),
+        ("─── tmux Keybindings ───", []),
+        ("From Any Pane (Ctrl+B prefix)", [
+            ("g", "Toggle lazygit in ZUI"),
+            ("n", "New Claude session"),
+            ("y", "New YOLO session"),
+        ]),
+        ("─── External Commands ───", []),
+        ("Shell", [
+            ("zui", "Launch ZUI (from anywhere)"),
+            ("tmux -S /tmp/claude-worktrees.sock ls", "List Claude sessions"),
+        ]),
+    ]
+
+    scroll = 0
+    # Calculate total lines
+    total_lines = 0
+    for title, items in help_sections:
+        total_lines += 1  # section title
+        total_lines += len(items)
+        if items:
+            total_lines += 1  # blank after section
+
+    while True:
+        height, width = win.getmaxyx()
+        dialog_h = height - 4
+        dialog_w = min(60, width - 4)
+        sy = 2
+        sx = max(0, (width - dialog_w) // 2)
+
+        # Background
+        attr_bg = curses.A_REVERSE
+        for y in range(dialog_h):
+            safe_addstr(win, sy + y, sx, " " * dialog_w, attr_bg)
+
+        # Title
+        safe_addstr(win, sy, sx + 2, " ZUI Help ", curses.A_BOLD | attr_bg)
+
+        # Content
+        visible_lines = dialog_h - 4
+        line = 0
+        display_line = 0
+
+        for title, items in help_sections:
+            if line >= scroll and display_line < visible_lines:
+                if items:
+                    safe_addstr(win, sy + 2 + display_line, sx + 2, title, curses.A_BOLD | attr_bg)
+                else:
+                    # Section header (centered divider)
+                    safe_addstr(win, sy + 2 + display_line, sx + 2, title, curses.A_BOLD | attr_bg)
+                display_line += 1
+            line += 1
+
+            for key, desc in items:
+                if line >= scroll and display_line < visible_lines:
+                    key_str = f"  {key:12}"
+                    safe_addstr(win, sy + 2 + display_line, sx + 2, key_str, curses.A_BOLD | attr_bg)
+                    safe_addstr(win, sy + 2 + display_line, sx + 2 + len(key_str), desc[:dialog_w - len(key_str) - 6], attr_bg)
+                    display_line += 1
+                line += 1
+
+            if items:
+                line += 1  # blank line
+                if line >= scroll and display_line < visible_lines:
+                    display_line += 1
+
+        # Footer
+        scroll_hint = f" ↑/↓: Scroll | " if total_lines > visible_lines else " "
+        safe_addstr(win, sy + dialog_h - 1, sx + 2, f"{scroll_hint}Esc/q/h: Close ", attr_bg)
+
+        win.refresh()
+
+        key = win.getch()
+        if key in (27, ord("q"), ord("h")):
+            return
+        elif key == curses.KEY_UP:
+            scroll = max(0, scroll - 1)
+        elif key == curses.KEY_DOWN:
+            scroll = min(max(0, total_lines - visible_lines), scroll + 1)
