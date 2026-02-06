@@ -91,12 +91,12 @@ def draw_session_row(
 
 def draw_footer(win, height: int, width: int) -> None:
     """Draw bottom help bar."""
-    if width >= 90:
-        footer = " Enter:View | g:Git | Tab:Focus | n:New | y:YOLO | w:Worktree | x:Kill | q:Quit "
-    elif width >= 50:
-        footer = " Ent g:Git Tab n y w x q "
+    if width >= 100:
+        footer = " Enter:View | g:Git | Tab:Focus | n:New | y:YOLO | w:Worktree | s:Settings | x:Kill | q:Quit "
+    elif width >= 55:
+        footer = " Ent g:Git Tab n y w s:Set x q "
     else:
-        footer = " Ent g Tab n y w x q "
+        footer = " Ent g Tab n y w s x q "
     attr = curses.color_pair(PAIR_FOOTER)
     safe_addstr(win, height - 1, 0, " " * (width - 1), attr)
     safe_addstr(win, height - 1, max(0, (width - len(footer)) // 2), footer, attr)
@@ -212,6 +212,85 @@ def input_dialog(
         elif 32 <= key <= 126:
             text = text[:cursor_pos] + chr(key) + text[cursor_pos:]
             cursor_pos += 1
+
+
+def settings_dialog(win, config) -> bool:
+    """Show a settings dialog. Returns True if saved, False if cancelled."""
+    settings = [
+        {
+            "label": "Right panel width:",
+            "key": "layout_right_width",
+            "value": config.layout_right_width,
+            "min": 50,
+            "max": 90,
+            "suffix": "%",
+        },
+        {
+            "label": "Lazygit height:",
+            "key": "layout_lazygit_height",
+            "value": config.layout_lazygit_height,
+            "min": 20,
+            "max": 60,
+            "suffix": "%",
+        },
+        {
+            "label": "Refresh interval:",
+            "key": "refresh_interval",
+            "value": config.refresh_interval,
+            "min": 1,
+            "max": 10,
+            "suffix": "s",
+        },
+    ]
+    selected = 0
+
+    while True:
+        height, width = win.getmaxyx()
+        dialog_w = min(38, width - 4)
+        dialog_h = len(settings) + 6
+        sy = max(0, (height - dialog_h) // 2)
+        sx = max(0, (width - dialog_w) // 2)
+
+        # Background
+        attr_bg = curses.A_REVERSE
+        for y in range(dialog_h):
+            safe_addstr(win, sy + y, sx, " " * dialog_w, attr_bg)
+
+        # Title
+        safe_addstr(win, sy, sx + 2, " Settings ", curses.A_BOLD | attr_bg)
+
+        # Setting rows
+        label_w = max(len(s["label"]) for s in settings)
+        for i, s in enumerate(settings):
+            row = sy + 2 + i
+            marker = "> " if i == selected else "  "
+            label = s["label"].ljust(label_w)
+            val_str = f"[{s['value']}]{s['suffix']}"
+            attr_row = curses.A_BOLD if i == selected else attr_bg
+            safe_addstr(win, row, sx + 2, f"{marker}{label}  {val_str}", attr_row)
+
+        # Help
+        safe_addstr(win, sy + dialog_h - 2, sx + 2, "\u2191/\u2193: Select | \u2190/\u2192: Adjust", attr_bg)
+        safe_addstr(win, sy + dialog_h - 1, sx + 2, "Enter: Save | Esc: Cancel", attr_bg)
+        win.refresh()
+
+        key = win.getch()
+        if key == 27:
+            return False
+        elif key == curses.KEY_UP:
+            selected = max(0, selected - 1)
+        elif key == curses.KEY_DOWN:
+            selected = min(len(settings) - 1, selected + 1)
+        elif key == curses.KEY_RIGHT:
+            s = settings[selected]
+            s["value"] = min(s["max"], s["value"] + 1)
+        elif key == curses.KEY_LEFT:
+            s = settings[selected]
+            s["value"] = max(s["min"], s["value"] - 1)
+        elif key in (ord("\n"), curses.KEY_ENTER):
+            for s in settings:
+                setattr(config, s["key"], s["value"])
+            return True
 
 
 def project_picker(

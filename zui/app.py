@@ -7,7 +7,7 @@ import os
 import time
 from typing import List, Optional
 
-from zui.config import Config
+from zui.config import Config, save_config
 from zui.discovery import Project, discover_projects
 from zui.sessions import (
     Session,
@@ -35,6 +35,7 @@ from zui.ui.widgets import (
     draw_status_message,
     input_dialog,
     project_picker,
+    settings_dialog,
 )
 from zui.worktrees import create_worktree
 
@@ -138,6 +139,9 @@ class App:
 
         elif key == ord("w"):
             self._create_worktree(stdscr)
+
+        elif key == ord("s"):
+            self._open_settings(stdscr)
 
         elif key == ord("\t"):
             focus_right_pane()
@@ -289,6 +293,20 @@ class App:
                         self._set_status("Error: Failed to open lazygit")
             else:
                 self._set_status("Error: Can't find session workdir")
+
+    def _open_settings(self, stdscr) -> None:
+        stdscr.timeout(-1)
+        if settings_dialog(stdscr, self.config):
+            try:
+                save_config(self.config)
+                stdscr.timeout(self.config.refresh_interval * 1000)
+                self._set_status("Settings saved")
+            except Exception as exc:
+                stdscr.timeout(self.config.refresh_interval * 1000)
+                self._set_status(f"Error saving: {exc}")
+        else:
+            stdscr.timeout(self.config.refresh_interval * 1000)
+            self._set_status("Settings cancelled")
 
     # ── Helpers ──────────────────────────────────────────────────────
 

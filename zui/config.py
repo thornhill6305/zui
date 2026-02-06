@@ -153,6 +153,62 @@ def _minimal_toml_parse(path: str) -> Dict:
     return data
 
 
+def save_config(cfg: Config) -> None:
+    """Write current config to ~/.config/zui/config.toml, preserving unknown keys."""
+    path = CONFIG_PATHS[0]  # ~/.config/zui/config.toml
+
+    # Read existing file content to preserve unknown sections
+    existing: Dict = {}
+    if os.path.isfile(path):
+        existing = _parse_toml(path)
+
+    # Update known keys
+    existing["socket"] = cfg.socket
+    existing["refresh_interval"] = cfg.refresh_interval
+
+    # Layout section
+    existing.setdefault("layout", {})
+    existing["layout"]["right_width"] = cfg.layout_right_width
+    existing["layout"]["lazygit_height"] = cfg.layout_lazygit_height
+
+    # Ensure dir exists
+    config_dir = os.path.dirname(path)
+    os.makedirs(config_dir, exist_ok=True)
+
+    # Write TOML
+    with open(path, "w") as f:
+        # Top-level scalars
+        for key in ("socket", "refresh_interval"):
+            if key in existing:
+                f.write(f"{key} = {_format_toml_value(existing[key])}\n")
+
+        # Sections (dict values)
+        for key, val in existing.items():
+            if isinstance(val, dict):
+                f.write(f"\n[{key}]\n")
+                for k, v in val.items():
+                    f.write(f"{k} = {_format_toml_value(v)}\n")
+            elif isinstance(val, list) and val and isinstance(val[0], dict):
+                for item in val:
+                    f.write(f"\n[[{key}]]\n")
+                    for k, v in item.items():
+                        f.write(f"{k} = {_format_toml_value(v)}\n")
+
+
+def _format_toml_value(val) -> str:
+    """Format a Python value as a TOML literal."""
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    if isinstance(val, int):
+        return str(val)
+    if isinstance(val, str):
+        return f'"{val}"'
+    if isinstance(val, list):
+        items = ", ".join(_format_toml_value(v) for v in val)
+        return f"[{items}]"
+    return str(val)
+
+
 def _parse_toml_value(val: str):
     """Parse a single TOML value."""
     # Boolean
