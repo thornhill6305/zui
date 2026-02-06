@@ -198,7 +198,32 @@ def show_session_in_pane(session_name: str, config: Config) -> bool:
     )
 
     time.sleep(0.1)
+
+    # Set pane title with session workdir and branch info
+    if result.returncode == 0:
+        workdir = get_session_workdir(session_name, config) or "~"
+        branch = _get_git_branch(workdir)
+        # Shorten path for display
+        short_path = workdir.replace(os.path.expanduser("~"), "~")
+        title = f"{short_path} ({branch})" if branch else short_path
+        subprocess.run(
+            ["tmux", "select-pane", "-t", "{right}", "-T", title],
+            capture_output=True,
+        )
+
     return result.returncode == 0
+
+
+def _get_git_branch(path: str) -> Optional[str]:
+    """Get the current git branch for a path."""
+    if not path or not os.path.isdir(path):
+        return None
+    result = subprocess.run(
+        ["git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
 
 
 def get_session_workdir(session_name: str, config: Config) -> Optional[str]:
