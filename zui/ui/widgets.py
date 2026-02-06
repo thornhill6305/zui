@@ -200,7 +200,7 @@ def input_dialog(
         if key == 27:  # Escape
             curses.curs_set(0)
             return None
-        elif key in (ord("\n"), curses.KEY_ENTER):
+        elif key in (ord("\n"), ord("\r"), curses.KEY_ENTER, 10, 13):
             curses.curs_set(0)
             return text
         elif key in (curses.KEY_BACKSPACE, 127, 8):
@@ -289,7 +289,7 @@ def settings_dialog(win, config) -> bool:
         elif key == curses.KEY_LEFT:
             s = settings[selected]
             s["value"] = max(s["min"], s["value"] - 1)
-        elif key in (ord("\n"), curses.KEY_ENTER):
+        elif key in (ord("\n"), ord("\r"), curses.KEY_ENTER, 10, 13):
             for s in settings:
                 setattr(config, s["key"], s["value"])
             return True
@@ -342,7 +342,7 @@ def project_picker(
             selected = max(0, selected - 1)
         elif key == curses.KEY_DOWN:
             selected = min(len(projects) - 1, selected + 1)
-        elif key in (ord("\n"), curses.KEY_ENTER):
+        elif key in (ord("\n"), ord("\r"), curses.KEY_ENTER, 10, 13):
             return selected
 
 
