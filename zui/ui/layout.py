@@ -6,6 +6,7 @@ right panel (live session) managed via tmux split-pane.
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 import time
 
@@ -45,7 +46,7 @@ def show_lazygit_pane(workdir: str, right_width: int = 70, lazygit_height: int =
         # No session pane yet — open lazygit in the right pane
         result = subprocess.run(
             ["tmux", "split-window", "-d", "-h", "-l", f"{right_width}%",
-             f"cd {workdir} && lazygit"],
+             f"cd {shlex.quote(workdir)} && lazygit"],
             capture_output=True, text=True,
         )
         time.sleep(0.1)
@@ -55,7 +56,7 @@ def show_lazygit_pane(workdir: str, right_width: int = 70, lazygit_height: int =
         # Session pane exists on right — split it vertically for lazygit below
         result = subprocess.run(
             ["tmux", "split-window", "-d", "-t", "{right}", "-v", "-l", f"{lazygit_height}%",
-             f"cd {workdir} && lazygit"],
+             f"cd {shlex.quote(workdir)} && lazygit"],
             capture_output=True, text=True,
         )
         time.sleep(0.1)
@@ -68,7 +69,7 @@ def show_lazygit_pane(workdir: str, right_width: int = 70, lazygit_height: int =
     )
     result = subprocess.run(
         ["tmux", "split-window", "-d", "-t", "{right}", "-v", "-l", f"{lazygit_height}%",
-         f"cd {workdir} && lazygit"],
+         f"cd {shlex.quote(workdir)} && lazygit"],
         capture_output=True, text=True,
     )
     time.sleep(0.1)
