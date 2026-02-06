@@ -93,8 +93,10 @@ def draw_footer(win, height: int, width: int) -> None:
     """Draw bottom help bar."""
     if width >= 100:
         footer = " Enter:View | g:Git | Tab:Focus | n:New | y:YOLO | w:Worktree | s:Settings | x:Kill | q:Quit "
-    elif width >= 55:
-        footer = " Ent g:Git Tab n y w s:Set x q "
+    elif width >= 70:
+        footer = " Ent:View g:Git Tab:Pane n:New y:YOLO w:Tree s:Set x:Kill q:Quit "
+    elif width >= 50:
+        footer = " Ent g:Git Tab n:New y:Yolo w:Tree s:Set x:Kill q "
     else:
         footer = " Ent g Tab n y w s x q "
     attr = curses.color_pair(PAIR_FOOTER)
