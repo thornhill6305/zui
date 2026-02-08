@@ -88,6 +88,45 @@ def create_worktree(
     return True, worktree_path
 
 
+def remove_worktree(
+    parent_repo: str,
+    worktree_path: str,
+    branch: str,
+    force: bool = False,
+) -> tuple[bool, str]:
+    """Remove a git worktree and delete its branch.
+
+    Args:
+        parent_repo: Path to the main git repository.
+        worktree_path: Path to the worktree directory.
+        branch: Branch name to delete.
+        force: If True, use --force for both worktree remove and branch delete.
+
+    Returns:
+        (success, message)
+    """
+    # Step 1: git worktree remove
+    args = ["git", "-C", parent_repo, "worktree", "remove", worktree_path]
+    if force:
+        args.append("--force")
+    result = subprocess.run(args, capture_output=True, text=True)
+    if result.returncode != 0:
+        return False, f"git worktree remove failed: {result.stderr.strip()}"
+
+    # Step 2: delete the branch
+    flag = "-D" if force else "-d"
+    result = subprocess.run(
+        ["git", "-C", parent_repo, "branch", flag, branch],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        # Worktree removed but branch delete failed — partial success
+        return True, f"Worktree removed but branch not deleted: {result.stderr.strip()}"
+
+    return True, f"Removed worktree and branch {branch}"
+
+
 def _run_hook(command: str, cwd: str) -> None:
     """Run a post-create hook command in the worktree directory."""
     try:

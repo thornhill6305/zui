@@ -132,8 +132,11 @@ class App:
         elif key == ord("y"):
             self._launch_session(stdscr, yolo=True)
 
-        elif key == ord("x") and self.sessions:
+        elif key == ord("k") and self.sessions:
             self._kill_session(stdscr)
+
+        elif key == ord("x") and self.sessions:
+            self._cleanup_worktree(stdscr)
 
         elif key == ord("g") and self.sessions:
             self._toggle_lazygit(stdscr)
@@ -226,6 +229,54 @@ class App:
                 self.selected = len(self.sessions) - 1
         else:
             self._set_status("Cancelled")
+        self._set_status_time()
+        stdscr.timeout(self.config.refresh_interval * 1000)
+
+    def _cleanup_worktree(self, stdscr) -> None:
+        """Full cleanup: kill session + remove worktree + delete branch."""
+        sess = self.sessions[self.selected]
+
+        # Find matching worktree project
+        proj = None
+        for p in self.projects:
+            if p.is_worktree:
+                # Match: session name contains the worktree dir basename
+                basename = os.path.basename(p.path)
+                if basename in sess.name or sess.name.endswith(basename):
+                    proj = p
+                    break
+
+        if proj is None:
+            # Not a worktree session — just kill it
+            self._kill_session(stdscr)
+            return
+
+        stdscr.timeout(-1)
+
+        if self.config.confirm_cleanup:
+            msg = f"Cleanup {sess.name}? (kill + remove worktree + delete branch)"
+            if not confirm_dialog(stdscr, msg):
+                self._set_status("Cancelled")
+                self._set_status_time()
+                stdscr.timeout(self.config.refresh_interval * 1000)
+                return
+
+        # Step 1: Kill tmux session
+        kill_session(sess.name, self.config)
+
+        # Step 2: Remove worktree + branch
+        from zui.worktrees import remove_worktree
+
+        ok, msg = remove_worktree(proj.parent_repo, proj.path, proj.branch)
+
+        if ok:
+            self._set_status(f"Cleaned: {sess.name}")
+        else:
+            self._set_status(f"Error: {msg}")
+
+        self._refresh(stdscr)
+        if self.selected >= len(self.sessions) and self.sessions:
+            self.selected = len(self.sessions) - 1
         self._set_status_time()
         stdscr.timeout(self.config.refresh_interval * 1000)
 

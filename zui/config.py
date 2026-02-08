@@ -39,6 +39,7 @@ class Config:
     # Layout settings (percentages)
     layout_right_width: int = 70  # Right panel width (session/lazygit), left gets the rest
     layout_lazygit_height: int = 40  # Lazygit panel height when shown
+    confirm_cleanup: bool = True  # Show confirmation before worktree cleanup
 
     @staticmethod
     def load() -> "Config":
@@ -68,6 +69,12 @@ def _load_toml(path: str) -> Config:
     if isinstance(claude, dict):
         cfg.default_args = claude.get("default_args", cfg.default_args)
         cfg.yolo_args = claude.get("yolo_args", cfg.yolo_args)
+
+    # Cleanup section
+    cleanup = data.get("cleanup", {})
+    if isinstance(cleanup, dict):
+        confirm = cleanup.get("confirm", cfg.confirm_cleanup)
+        cfg.confirm_cleanup = confirm if isinstance(confirm, bool) else cfg.confirm_cleanup
 
     # Hooks section
     hooks = data.get("hooks", {})

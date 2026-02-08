@@ -92,13 +92,13 @@ def draw_session_row(
 def draw_footer(win, height: int, width: int) -> None:
     """Draw bottom help bar."""
     if width >= 110:
-        footer = " Enter:View | g:Git | Tab:Focus | n:New | y:YOLO | w:Worktree | s:Settings | h:Help | x:Kill | q:Quit "
+        footer = " Enter:View | g:Git | Tab:Focus | n:New | y:YOLO | w:Worktree | s:Settings | h:Help | k:Kill | x:Clean | q:Quit "
     elif width >= 75:
-        footer = " Ent:View g:Git Tab:Pane n:New y:YOLO w:Tree s:Set h:Help x:Kill q:Quit "
+        footer = " Ent:View g:Git Tab:Pane n:New y:YOLO w:Tree s:Set h:Help k:Kill x:Clean q:Quit "
     elif width >= 55:
-        footer = " Ent g:Git Tab n:New y:Yolo w:Tree s h:Help x:Kill q "
+        footer = " Ent g:Git Tab n y w s h k:Kill x:Clean q "
     else:
-        footer = " Ent g Tab n y w s h x q "
+        footer = " Ent g Tab n y w s h k x q "
     attr = curses.color_pair(PAIR_FOOTER)
     safe_addstr(win, height - 1, 0, " " * (width - 1), attr)
     safe_addstr(win, height - 1, max(0, (width - len(footer)) // 2), footer, attr)
@@ -358,7 +358,8 @@ def help_dialog(win) -> None:
         ("Session Management", [
             ("n", "New Claude session (pick project)"),
             ("y", "New YOLO session (auto-accept)"),
-            ("x", "Kill selected session"),
+            ("k", "Kill selected session"),
+            ("x", "Cleanup worktree (kill + remove + delete branch)"),
         ]),
         ("Git & Worktrees", [
             ("g", "Toggle lazygit pane"),
