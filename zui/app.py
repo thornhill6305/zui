@@ -213,7 +213,7 @@ class App:
             proj = self.projects[idx]
 
             # If session already exists for this project, just show it
-            session_candidate = f"claude-{proj.branch.replace('/', '-') or proj.name}"
+            session_candidate = f"claude-{proj.name}"
             if session_exists(session_candidate, self.config):
                 show_session_in_pane(session_candidate, self.config)
                 focus_right_pane()
