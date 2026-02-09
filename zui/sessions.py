@@ -48,6 +48,22 @@ def run_tmux(args: List[str], socket: str) -> str:
         return ""
 
 
+def _get_own_session_name(socket: str) -> Optional[str]:
+    """Detect the tmux session ZUI is running in, so we can exclude it."""
+    tmux_env = os.environ.get("TMUX", "")
+    if not tmux_env:
+        return None
+    # $TMUX is like /tmp/tmux-1000/default,12345,0 — extract pane info
+    pane_id = os.environ.get("TMUX_PANE", "")
+    if not pane_id:
+        return None
+    output = run_tmux(
+        ["display-message", "-t", pane_id, "-p", "#{session_name}"],
+        socket,
+    )
+    return output if output else None
+
+
 def get_sessions(config: Config, use_ascii: bool = True) -> List[Session]:
     """Get list of active sessions with details."""
     output = run_tmux(
@@ -64,6 +80,9 @@ def get_sessions(config: Config, use_ascii: bool = True) -> List[Session]:
     sessions: List[Session] = []
     now = time.time()
 
+    # Detect our own session to exclude it
+    own_session = _get_own_session_name(config.socket)
+
     for line in output.split("\n"):
         if not line:
             continue
@@ -72,6 +91,8 @@ def get_sessions(config: Config, use_ascii: bool = True) -> List[Session]:
             continue
 
         name = parts[0]
+        if name == own_session:
+            continue
         try:
             created = int(parts[1])
             last_activity = int(parts[2])
