@@ -215,8 +215,9 @@ def show_session_in_pane(session_name: str, config: Config) -> bool:
         )
 
     # Split horizontally, keep focus on zui (left)
+    # Unset TMUX so the nested attach doesn't think it's already inside tmux
     base = f"tmux -S {config.socket}" if config.socket else "tmux"
-    cmd = f"{base} attach -t {session_name}"
+    cmd = f"unset TMUX; {base} attach -t {session_name}"
     result = subprocess.run(
         ["tmux", "split-window", "-d", "-h", "-l", f"{config.layout_right_width}%", cmd],
         capture_output=True,
