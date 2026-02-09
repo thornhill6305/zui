@@ -153,6 +153,23 @@ class App:
         elif key == ord("\t"):
             focus_right_pane()
 
+    def _render(self, stdscr) -> None:
+        """Force a screen redraw (for showing loading states)."""
+        stdscr.erase()
+        height, width = stdscr.getmaxyx()
+        draw_header(stdscr, width)
+        if not self.sessions:
+            draw_empty_state(stdscr, height, width)
+        else:
+            for i, session in enumerate(self.sessions):
+                row = 4 + i
+                if row >= height - 3:
+                    break
+                draw_session_row(stdscr, row, session, i == self.selected, width)
+        draw_status_message(stdscr, height, width, self.status_message)
+        draw_footer(stdscr, height, width)
+        stdscr.refresh()
+
     # ── Actions ──────────────────────────────────────────────────────
 
     def _view_session(self, stdscr) -> None:
@@ -260,6 +277,9 @@ class App:
                 self._set_status_time()
                 stdscr.timeout(self.config.refresh_interval * 1000)
                 return
+
+        self._set_status(f"Cleaning {proj.display_name}...")
+        self._render(stdscr)
 
         # Kill any matching tmux session
         basename = os.path.basename(proj.path)
