@@ -130,12 +130,22 @@ def spawn_session(
 
     Returns (success, session_name_or_error).
     """
-    # Use directory name as session name (avoids collisions when multiple repos share a branch like 'main')
-    name = os.path.basename(workdir.rstrip("/"))
+    # Session name: <repo>-<branch>
+    dir_name = os.path.basename(workdir.rstrip("/"))
+    try:
+        result = subprocess.run(
+            ["git", "-C", workdir, "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        branch = result.stdout.strip().replace("/", "-")
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        branch = ""
 
-    name = name.replace("/", "-")
+    name = f"{dir_name}-{branch}" if branch else dir_name
     name = re.sub(r"[^a-zA-Z0-9_-]", "-", name)
-    session_name = f"claude-{name}"
+    session_name = name
 
     # Check for existing session
     check = subprocess.run(
