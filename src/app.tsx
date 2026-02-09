@@ -1,5 +1,5 @@
 // src/app.tsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, useApp, useInput } from "ink";
 import type { Config, Session, Project } from "./types.js";
 import { getSessions, spawnSession, killSession, showSessionInPane, getSessionWorkdir, sessionExists } from "./sessions.js";
@@ -39,9 +39,11 @@ export function App({ config: initialConfig }: AppProps): React.ReactElement {
   const [statusMessage, setStatusMessage] = useState("");
   const [dialog, setDialog] = useState<Dialog>({ type: "none" });
 
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const setStatus = useCallback((msg: string) => {
     setStatusMessage(msg);
-    setTimeout(() => setStatusMessage(""), 3000);
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    statusTimerRef.current = setTimeout(() => setStatusMessage(""), 3000);
   }, []);
 
   // Refresh sessions periodically

@@ -1,9 +1,10 @@
 // src/__tests__/config.test.ts
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { writeFileSync, readFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadConfig, defaultConfig } from "../config.js";
+import { loadConfig, defaultConfig, saveConfig } from "../config.js";
+import type { Config } from "../types.js";
 
 describe("defaultConfig", () => {
   it("has empty socket", () => {
@@ -83,5 +84,45 @@ lazygit_height = 50
     const cfg = loadConfig(file);
     expect(cfg.layoutRightWidth).toBe(80);
     expect(cfg.layoutLazygitHeight).toBe(50);
+  });
+});
+
+describe("saveConfig", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = join(tmpdir(), `zui-test-save-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("preserves existing config sections on save", () => {
+    const file = join(tmpDir, "config.toml");
+    const existing = `socket = ""
+refresh_interval = 2
+
+[claude]
+default_args = ["--verbose"]
+
+[hooks]
+post_worktree_create = "npm install"
+
+[layout]
+right_width = 70
+lazygit_height = 40
+`;
+    writeFileSync(file, existing);
+
+    const cfg = defaultConfig();
+    cfg.layoutRightWidth = 80;
+    saveConfig(cfg, file);
+
+    const saved = readFileSync(file, "utf-8");
+    expect(saved).toContain("right_width = 80");
+    expect(saved).toContain("claude");
+    expect(saved).toContain("hooks");
   });
 });

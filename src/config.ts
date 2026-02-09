@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
-import { parse as parseToml } from "smol-toml";
+import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import type { Config, ProjectConfig } from "./types.js";
 
 const CONFIG_PATHS = [
@@ -89,17 +89,28 @@ function parseConfigFile(path: string): Config {
   return cfg;
 }
 
-export function saveConfig(cfg: Config): void {
-  const path = CONFIG_PATHS[0]!;
+export function saveConfig(cfg: Config, savePath?: string): void {
+  const path = savePath ?? CONFIG_PATHS[0]!;
   mkdirSync(dirname(path), { recursive: true });
 
-  const lines: string[] = [];
-  lines.push(`socket = "${cfg.socket}"`);
-  lines.push(`refresh_interval = ${cfg.refreshInterval}`);
-  lines.push("");
-  lines.push("[layout]");
-  lines.push(`right_width = ${cfg.layoutRightWidth}`);
-  lines.push(`lazygit_height = ${cfg.layoutLazygitHeight}`);
+  // Read-modify-write to preserve sections we don't edit
+  let existing: Record<string, unknown> = {};
+  try {
+    if (existsSync(path)) {
+      existing = parseToml(readFileSync(path, "utf-8")) as Record<string, unknown>;
+    }
+  } catch {
+    // start fresh if existing file is malformed
+  }
 
-  writeFileSync(path, lines.join("\n") + "\n");
+  existing.socket = cfg.socket;
+  existing.refresh_interval = cfg.refreshInterval;
+
+  const layout = (typeof existing.layout === "object" && existing.layout !== null
+    ? existing.layout : {}) as Record<string, unknown>;
+  layout.right_width = cfg.layoutRightWidth;
+  layout.lazygit_height = cfg.layoutLazygitHeight;
+  existing.layout = layout;
+
+  writeFileSync(path, stringifyToml(existing) + "\n");
 }

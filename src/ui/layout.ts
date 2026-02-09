@@ -10,12 +10,6 @@ export function getPaneCount(): number {
   return /^\d+$/.test(result) ? parseInt(result, 10) : 1;
 }
 
-export function killRightPane(): void {
-  if (getPaneCount() > 1) {
-    runCommand("tmux", ["kill-pane", "-t", "{right}"]);
-  }
-}
-
 export function showLazygitPane(
   workdir: string,
   rightWidth: number = 70,

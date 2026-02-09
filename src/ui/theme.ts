@@ -1,4 +1,4 @@
-export const colors = {
+const colors = {
   header: { bg: "cyan", fg: "black" },
   footer: { bg: "cyan", fg: "black" },
   selected: { bg: "white", fg: "black" },

@@ -1,10 +1,14 @@
 // src/index.tsx
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import process from "node:process";
 import React from "react";
 import { render } from "ink";
 import { App } from "./app.js";
 import { loadConfig } from "./config.js";
+
+function shellQuote(s: string): string {
+  return "'" + s.replace(/'/g, "'\\''") + "'";
+}
 
 function main(): void {
   if (!process.stdin.isTTY) {
@@ -22,14 +26,12 @@ function main(): void {
       // session might not exist
     }
 
-    // Re-exec inside tmux
-    const argv = process.argv.slice(1);
-    const nodeCmd = `${process.argv[0]} ${argv.join(" ")}`;
+    // Re-exec inside tmux (shell-escape argv to prevent injection)
+    const shellCmd = process.argv.map(a => shellQuote(a)).join(" ");
     try {
-      execSync(
-        `tmux new-session -s zui-manager -n zui "${nodeCmd}"`,
-        { stdio: "inherit" },
-      );
+      execFileSync("tmux", [
+        "new-session", "-s", "zui-manager", "-n", "zui", shellCmd,
+      ], { stdio: "inherit" });
     } catch {
       // tmux session ended
     }

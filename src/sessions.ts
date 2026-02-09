@@ -1,5 +1,4 @@
 // src/sessions.ts
-import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import type { Config, Session } from "./types.js";
 import { runCommand, runCommandOk } from "./shell.js";
@@ -8,8 +7,9 @@ function tmuxBase(socket: string): string[] {
   return socket ? ["tmux", "-S", socket] : ["tmux"];
 }
 
-export function runTmux(args: string[], socket: string): string {
-  return runCommand(tmuxBase(socket)[0]!, [...tmuxBase(socket).slice(1), ...args]);
+function runTmux(args: string[], socket: string): string {
+  const base = tmuxBase(socket);
+  return runCommand(base[0]!, [...base.slice(1), ...args]);
 }
 
 function getOwnSessionName(socket: string): string | null {
@@ -75,15 +75,9 @@ export function spawnSession(
 ): [boolean, string] {
   const dirName = workdir.replace(/\/+$/, "").split("/").pop()!;
   let branch = "";
-  try {
-    const result = execFileSync("git", ["-C", workdir, "branch", "--show-current"], {
-      encoding: "utf-8",
-      timeout: 3000,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    branch = result.trim().replace(/\//g, "-");
-  } catch {
-    // no branch info
+  const branchResult = runCommand("git", ["-C", workdir, "branch", "--show-current"]);
+  if (branchResult) {
+    branch = branchResult.replace(/\//g, "-");
   }
 
   let sessionName = branch ? `${dirName}-${branch}` : dirName;
@@ -118,8 +112,8 @@ export function showSessionInPane(sessionName: string, config: Config): boolean 
     runCommand("tmux", ["kill-pane", "-t", "{right}"]);
   }
 
-  const base = config.socket ? `tmux -S ${config.socket}` : "tmux";
-  const cmd = `unset TMUX; ${base} attach -t ${sessionName}`;
+  const socketArgs = config.socket ? ` -S '${config.socket.replace(/'/g, "'\\''")}'` : "";
+  const cmd = `unset TMUX; tmux${socketArgs} attach -t '${sessionName.replace(/'/g, "'\\''")}'`;
   const ok = runCommandOk("tmux", [
     "split-window", "-d", "-h", "-l", `${config.layoutRightWidth}%`, cmd,
   ]);
