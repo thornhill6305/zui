@@ -12,7 +12,7 @@ class TestConfigDefaults(unittest.TestCase):
 
     def test_default_socket(self):
         cfg = Config()
-        self.assertEqual(cfg.socket, "/tmp/zui-claude.sock")
+        self.assertEqual(cfg.socket, "")
 
     def test_default_projects_empty(self):
         cfg = Config()

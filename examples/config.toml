@@ -1,8 +1,8 @@
 # ZUI configuration example
 # Place at ~/.config/zui/config.toml or ~/.zui.toml
 
-# Tmux socket path (default: /tmp/zui-claude.sock)
-socket = "/tmp/zui-claude.sock"
+# Tmux socket path (default: "" = default tmux server)
+socket = ""
 
 # Session list refresh interval in seconds
 refresh_interval = 2

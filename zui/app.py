@@ -135,7 +135,7 @@ class App:
         elif key == ord("k") and self.sessions:
             self._kill_session(stdscr)
 
-        elif key == ord("x") and self.sessions:
+        elif key == ord("x"):
             self._cleanup_worktree(stdscr)
 
         elif key == ord("g") and self.sessions:
@@ -233,49 +233,53 @@ class App:
         stdscr.timeout(self.config.refresh_interval * 1000)
 
     def _cleanup_worktree(self, stdscr) -> None:
-        """Full cleanup: kill session + remove worktree + delete branch."""
-        sess = self.sessions[self.selected]
+        """Show picker of worktrees, then clean selected one (remove worktree + delete branch + kill matching session)."""
+        self.projects = discover_projects(self.config)
+        worktrees = [p for p in self.projects if p.is_worktree]
 
-        # Find matching worktree project
-        proj = None
-        for p in self.projects:
-            if p.is_worktree:
-                # Match: session name contains the worktree dir basename
-                basename = os.path.basename(p.path)
-                if basename in sess.name or sess.name.endswith(basename):
-                    proj = p
-                    break
-
-        if proj is None:
-            # Not a worktree session — just kill it
-            self._kill_session(stdscr)
+        if not worktrees:
+            self._set_status("No worktrees to clean")
+            self._set_status_time()
             return
 
         stdscr.timeout(-1)
 
+        idx = project_picker(stdscr, worktrees, title="Clean Worktree")
+        if idx is None:
+            self._set_status("Cancelled")
+            self._set_status_time()
+            stdscr.timeout(self.config.refresh_interval * 1000)
+            return
+
+        proj = worktrees[idx]
+
         if self.config.confirm_cleanup:
-            msg = f"Cleanup {sess.name}? (kill + remove worktree + delete branch)"
+            msg = f"Clean {proj.display_name}? (remove worktree + delete branch)"
             if not confirm_dialog(stdscr, msg):
                 self._set_status("Cancelled")
                 self._set_status_time()
                 stdscr.timeout(self.config.refresh_interval * 1000)
                 return
 
-        # Step 1: Kill tmux session
-        kill_session(sess.name, self.config)
+        # Kill any matching tmux session
+        basename = os.path.basename(proj.path)
+        for sess in self.sessions:
+            if basename in sess.name or sess.name.endswith(basename):
+                kill_session(sess.name, self.config)
+                break
 
-        # Step 2: Remove worktree + branch
+        # Remove worktree + branch
         from zui.worktrees import remove_worktree
 
         ok, msg = remove_worktree(proj.parent_repo, proj.path, proj.branch)
 
         if ok:
-            self._set_status(f"Cleaned: {sess.name}")
+            self._set_status(f"Cleaned: {proj.display_name}")
         else:
             self._set_status(f"Error: {msg}")
 
         self._refresh(stdscr)
-        if self.selected >= len(self.sessions) and self.sessions:
+        if self.sessions and self.selected >= len(self.sessions):
             self.selected = len(self.sessions) - 1
         self._set_status_time()
         stdscr.timeout(self.config.refresh_interval * 1000)

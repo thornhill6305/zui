@@ -75,7 +75,7 @@ python -m zui
 
 1. ZUI launches inside a tmux session (`zui-manager`)
 2. It discovers git repos in your cwd and home directory
-3. Claude sessions run in a separate tmux server (socket: `/tmp/zui-claude.sock`)
+3. Claude sessions run on the default tmux server
 4. When you press Enter on a session, it splits the pane to show the live session
 5. Tab switches focus between ZUI and the session pane
 
@@ -84,8 +84,8 @@ python -m zui
 ZUI works with zero config. For explicit control, create `~/.config/zui/config.toml`:
 
 ```toml
-# Custom tmux socket path
-socket = "/tmp/zui-claude.sock"
+# Custom tmux socket path (empty = default tmux server)
+socket = ""
 
 # Explicit project roots
 [[projects]]

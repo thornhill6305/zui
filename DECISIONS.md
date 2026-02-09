@@ -7,11 +7,12 @@ external dependencies (textual, rich, blessed), ZUI installs instantly with
 `pip install` and has zero supply-chain risk. The trade-off is more manual
 drawing code, but the UI is simple enough that this is fine.
 
-## D2: Dedicated Tmux Socket
+## D2: Default Tmux Server
 
-ZUI sessions use `/tmp/zui-claude.sock` by default, separate from the user's
-normal tmux server. This prevents ZUI sessions from cluttering `tmux ls` and
-avoids conflicts with user sessions.
+ZUI sessions now use the default tmux server (no custom socket). This
+simplifies the setup and allows all Claude sessions to be visible with
+standard `tmux ls` commands. Session naming (`claude-*`) keeps them
+organized and distinguishable from user sessions.
 
 ## D3: Zero-Config Auto-Discovery
 

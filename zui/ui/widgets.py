@@ -380,7 +380,7 @@ def help_dialog(win) -> None:
         ("─── External Commands ───", []),
         ("Shell", [
             ("zui", "Launch ZUI (from anywhere)"),
-            ("tmux -S /tmp/zui-claude.sock ls", "List Claude sessions"),
+            ("tmux ls", "List Claude sessions"),
         ]),
     ]
 

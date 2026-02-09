@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 # Default tmux socket path
-DEFAULT_SOCKET = "/tmp/zui-claude.sock"
+DEFAULT_SOCKET = ""  # Empty = use default tmux server (no -S flag)
 
 # Config search paths (first found wins)
 CONFIG_PATHS = [

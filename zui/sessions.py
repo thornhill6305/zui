@@ -1,7 +1,7 @@
 """Tmux session management for ZUI.
 
-All tmux interactions go through this module. Sessions use a dedicated
-tmux socket to keep ZUI sessions separate from user sessions.
+All tmux interactions go through this module. By default, sessions use
+the default tmux server. A custom socket can be configured if needed.
 """
 
 from __future__ import annotations
@@ -27,11 +27,18 @@ class Session:
     preview: str
 
 
+def _tmux_base(socket: str) -> List[str]:
+    """Build tmux base command, with -S only if socket is set."""
+    if socket:
+        return ["tmux", "-S", socket]
+    return ["tmux"]
+
+
 def run_tmux(args: List[str], socket: str) -> str:
-    """Run a tmux command with the ZUI socket."""
+    """Run a tmux command, using -S only if socket is non-empty."""
     try:
         result = subprocess.run(
-            ["tmux", "-S", socket] + args,
+            _tmux_base(socket) + args,
             capture_output=True,
             text=True,
             timeout=5,
@@ -123,7 +130,7 @@ def spawn_session(
 
     # Check for existing session
     check = subprocess.run(
-        ["tmux", "-S", config.socket, "has-session", "-t", session_name],
+        _tmux_base(config.socket) + ["has-session", "-t", session_name],
         capture_output=True,
     )
     if check.returncode == 0:
@@ -136,10 +143,7 @@ def spawn_session(
         claude_cmd += " " + " ".join(args)
 
     result = subprocess.run(
-        [
-            "tmux",
-            "-S",
-            config.socket,
+        _tmux_base(config.socket) + [
             "new-session",
             "-d",
             "-s",
@@ -161,7 +165,7 @@ def spawn_session(
 def kill_session(name: str, config: Config) -> bool:
     """Kill a tmux session by name."""
     result = subprocess.run(
-        ["tmux", "-S", config.socket, "kill-session", "-t", name],
+        _tmux_base(config.socket) + ["kill-session", "-t", name],
         capture_output=True,
     )
     return result.returncode == 0
@@ -190,7 +194,8 @@ def show_session_in_pane(session_name: str, config: Config) -> bool:
         )
 
     # Split horizontally, keep focus on zui (left)
-    cmd = f"tmux -S {config.socket} attach -t {session_name}"
+    base = f"tmux -S {config.socket}" if config.socket else "tmux"
+    cmd = f"{base} attach -t {session_name}"
     result = subprocess.run(
         ["tmux", "split-window", "-d", "-h", "-l", f"{config.layout_right_width}%", cmd],
         capture_output=True,
@@ -229,8 +234,7 @@ def _get_git_branch(path: str) -> Optional[str]:
 def get_session_workdir(session_name: str, config: Config) -> Optional[str]:
     """Get the working directory of a tmux session."""
     result = subprocess.run(
-        [
-            "tmux", "-S", config.socket,
+        _tmux_base(config.socket) + [
             "display-message", "-t", session_name,
             "-p", "#{pane_current_path}",
         ],
@@ -244,7 +248,7 @@ def get_session_workdir(session_name: str, config: Config) -> Optional[str]:
 def session_exists(name: str, config: Config) -> bool:
     """Check if a session exists."""
     result = subprocess.run(
-        ["tmux", "-S", config.socket, "has-session", "-t", name],
+        _tmux_base(config.socket) + ["has-session", "-t", name],
         capture_output=True,
     )
     return result.returncode == 0
