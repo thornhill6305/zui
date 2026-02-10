@@ -76,7 +76,7 @@ zui ls           # List sessions with indices
 ### How It Works
 
 1. ZUI launches inside a tmux session (`zui-manager`)
-2. It discovers git repos in your cwd and home directory
+2. It discovers git repos in your cwd, home directory, and any `scan_dirs`
 3. Claude sessions run on the default tmux server
 4. When you press Enter on a session, it splits the pane to show the live session
 5. Tab switches focus between ZUI and the session pane
@@ -88,6 +88,9 @@ ZUI works with zero config. For explicit control, create `~/.config/zui/config.t
 ```toml
 # Custom tmux socket path (empty = default tmux server)
 socket = ""
+
+# Additional directories to scan for git repos (beyond ~)
+scan_dirs = ["~/desktop", "~/work"]
 
 # Explicit project roots
 [[projects]]
