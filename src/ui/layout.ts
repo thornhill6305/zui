@@ -45,7 +45,9 @@ export function killBottomRightPane(): void {
 
 export function closeRightPane(): boolean {
   if (getPaneCount() <= 1) return false;
-  return runCommandOk("tmux", ["kill-pane", "-a", "-t", "zui-manager:zui.0"]);
+  const baseIdx = runCommand("tmux", ["show-options", "-gv", "pane-base-index"]);
+  const first = /^\d+$/.test(baseIdx) ? baseIdx : "0";
+  return runCommandOk("tmux", ["kill-pane", "-a", "-t", `zui-manager:zui.${first}`]);
 }
 
 export function focusBottomRightPane(): void {
