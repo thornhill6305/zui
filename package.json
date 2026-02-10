@@ -6,11 +6,28 @@
   "bin": {
     "zui": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thornhill6305/zui.git"
+  },
+  "homepage": "https://github.com/thornhill6305/zui",
+  "keywords": [
+    "tui",
+    "tmux",
+    "claude",
+    "ai",
+    "agent",
+    "terminal"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsx src/index.tsx",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "ink": "^5.2.0",
