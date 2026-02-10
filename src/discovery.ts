@@ -9,7 +9,7 @@ export function discoverProjects(config: Config): Project[] {
   if (config.projects.length > 0) {
     return discoverFromConfig(config);
   }
-  return discoverAuto();
+  return discoverAuto(config.scanDirs);
 }
 
 function discoverFromConfig(config: Config): Project[] {
@@ -52,7 +52,7 @@ function discoverFromConfig(config: Config): Project[] {
   return projects;
 }
 
-function discoverAuto(): Project[] {
+function discoverAuto(scanDirs: string[] = []): Project[] {
   const projects: Project[] = [];
   const seenPaths = new Set<string>();
 
@@ -61,17 +61,19 @@ function discoverAuto(): Project[] {
     addRepoAndWorktrees(cwd, projects, seenPaths);
   }
 
-  const home = homedir();
-  try {
-    for (const entry of readdirSync(home).sort()) {
-      const full = join(home, entry);
-      if (seenPaths.has(full)) continue;
-      if (!entry.startsWith(".") && existsSync(join(full, ".git"))) {
-        addRepoAndWorktrees(full, projects, seenPaths);
+  const dirs = [homedir(), ...scanDirs];
+  for (const dir of dirs) {
+    try {
+      for (const entry of readdirSync(dir).sort()) {
+        const full = join(dir, entry);
+        if (seenPaths.has(full)) continue;
+        if (!entry.startsWith(".") && existsSync(join(full, ".git"))) {
+          addRepoAndWorktrees(full, projects, seenPaths);
+        }
       }
+    } catch {
+      // permission error, missing dir, etc.
     }
-  } catch {
-    // permission error etc.
   }
 
   return projects;

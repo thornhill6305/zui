@@ -7,6 +7,7 @@ export interface ProjectConfig {
 export interface Config {
   socket: string;
   projects: ProjectConfig[];
+  scanDirs: string[];
   defaultArgs: string[];
   yoloArgs: string[];
   hookPostWorktreeCreate: string;

@@ -14,6 +14,7 @@ export function defaultConfig(): Config {
   return {
     socket: "",
     projects: [],
+    scanDirs: [],
     defaultArgs: [],
     yoloArgs: ["--dangerously-skip-permissions"],
     hookPostWorktreeCreate: "",
@@ -70,6 +71,14 @@ function parseConfigFile(path: string): Config {
   if (hooks && typeof hooks === "object") {
     if (typeof hooks.post_worktree_create === "string") {
       cfg.hookPostWorktreeCreate = hooks.post_worktree_create;
+    }
+  }
+
+  if (Array.isArray(data.scan_dirs)) {
+    for (const d of data.scan_dirs) {
+      if (typeof d === "string") {
+        cfg.scanDirs.push(d.replace(/^~/, homedir()));
+      }
     }
   }
 
