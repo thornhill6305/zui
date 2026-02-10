@@ -7,11 +7,11 @@ A terminal UI for managing [Claude Code](https://docs.anthropic.com/en/docs/clau
 │                                                                    │
 │  Session                Status    Running   Preview                │
 │  ──────────────────────────────────────────────────────────────    │
-│> claude-feat-auth       [WORK]    12m 34s   Implementing login...  │
-│  claude-fix-api         [WAIT]    3m 12s    Allow tool use? (y/n)  │
-│  claude-main            [IDLE]    1h 5m     >                      │
+│> myapp-feat-auth        [WORK]    12m 34s   Implementing login...  │
+│  myapp-fix-api          [WAIT]    3m 12s    Allow tool use? (y/n)  │
+│  myapp-main             [IDLE]    1h 5m     >                      │
 │                                                                    │
-│ Enter:View | Tab:Focus | n:New | y:YOLO | w:Worktree | x:Kill    │
+│ Ent:View g:Git Tab:Pane n:New y:YOLO w:Tree s:Set h:Help k:Kill  │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -23,15 +23,14 @@ A terminal UI for managing [Claude Code](https://docs.anthropic.com/en/docs/clau
 - **Worktree management** — create git worktrees and launch agents in them
 - **Session status** — detects working, waiting-for-input, error, and idle states
 - **YOLO mode** — launch Claude with `--dangerously-skip-permissions`
-- **No dependencies** — Python stdlib only (curses), runs anywhere Python + tmux exist
+- **Lazygit integration** — toggle a lazygit pane for the selected session
+- **Responsive layout** — columns adapt to terminal width, handles resize
 
 ## Prerequisites
 
-You need these installed before running ZUI:
-
 | Dependency | Install |
 |---|---|
-| **Python 3.10+** | [python.org](https://www.python.org/downloads/) or your package manager |
+| **Node.js 20+** | [nodejs.org](https://nodejs.org/) or your package manager |
 | **tmux** | `sudo apt install tmux` (Debian/Ubuntu) · `brew install tmux` (macOS) · [tmux wiki](https://github.com/tmux/tmux/wiki/Installing) |
 | **git** | `sudo apt install git` (Debian/Ubuntu) · `brew install git` (macOS) · [git-scm.com](https://git-scm.com/downloads) |
 | **Claude Code** | `npm install -g @anthropic-ai/claude-code` · [docs](https://docs.anthropic.com/en/docs/claude-code) |
@@ -39,13 +38,12 @@ You need these installed before running ZUI:
 ## Installation
 
 ```bash
-# Clone and install
+# Clone, build, and link globally
 git clone https://github.com/thornhill6305/zui.git
 cd zui
-pip install .
-
-# Or install in an isolated environment with pipx
-pipx install .
+npm install
+npm run build
+npm link
 ```
 
 ## Usage
@@ -53,9 +51,6 @@ pipx install .
 ```bash
 # Launch ZUI (auto-wraps in tmux if needed)
 zui
-
-# Or run as a module
-python -m zui
 ```
 
 ### Keybindings
@@ -67,7 +62,11 @@ python -m zui
 | `w`     | Create a new git worktree                 |
 | `Enter` | View selected session in right pane       |
 | `Tab`   | Switch focus to session pane              |
-| `x`     | Kill selected session                     |
+| `g`     | Toggle lazygit pane                       |
+| `k`     | Kill selected session                     |
+| `x`     | Clean up a worktree                       |
+| `s`     | Settings                                  |
+| `h`     | Help                                      |
 | `r`     | Force refresh session list                |
 | `q`     | Quit                                      |
 
@@ -109,17 +108,21 @@ See [examples/config.toml](examples/config.toml) for a full example.
 ## Architecture
 
 ```
-zui/
-├── __main__.py      # Entry point
-├── app.py           # Main TUI loop
-├── config.py        # Config loading (TOML)
-├── discovery.py     # Git repo/worktree scanning
-├── sessions.py      # Tmux session management
-├── worktrees.py     # Git worktree operations
+src/
+├── index.tsx          # Entry point, tmux auto-wrapping
+├── app.tsx            # Main App component, keybindings
+├── config.ts          # Config loading (TOML)
+├── discovery.ts       # Git repo/worktree scanning
+├── sessions.ts        # Tmux session management
+├── worktrees.ts       # Git worktree operations
+├── shell.ts           # Shell command wrapper
+├── types.ts           # Shared types
 └── ui/
-    ├── layout.py    # Split-pane management
-    ├── widgets.py   # Header, footer, dialogs
-    └── theme.py     # Colors and display modes
+    ├── Header.tsx     # Title bar
+    ├── Footer.tsx     # Keybinding hints
+    ├── SessionList.tsx # Responsive session table
+    ├── layout.ts      # Split-pane management
+    └── theme.ts       # Status colors
 ```
 
 ## License
