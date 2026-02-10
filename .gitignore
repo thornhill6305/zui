@@ -1,14 +1,4 @@
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-*.egg
-dist/
-build/
-.eggs/
-.venv/
-venv/
-.mypy_cache/
-.pytest_cache/
-.claude/
 node_modules/
+dist/
+*.tsbuildinfo
+.claude/
