@@ -5,7 +5,7 @@ export function Footer(): React.ReactElement {
   return (
     <Box justifyContent="center" width="100%">
       <Text backgroundColor="cyan" color="black">
-        {" Ent:View g:Git Tab:Pane n:New y:YOLO w:Tree s:Set h:Help k:Kill x:Clean q:Quit "}
+        {" 1-9:Jump Ent:View g:Git Tab:Pane n:New y:YOLO w:Tree s:Set h:Help k:Kill q:Quit "}
       </Text>
     </Box>
   );

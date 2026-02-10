@@ -108,15 +108,20 @@ export function showSessionInPane(sessionName: string, config: Config): boolean 
   const paneCountOut = runCommand("tmux", ["display-message", "-p", "#{window_panes}"]);
   const numPanes = /^\d+$/.test(paneCountOut) ? parseInt(paneCountOut, 10) : 1;
 
-  if (numPanes > 1) {
-    runCommand("tmux", ["kill-pane", "-t", "{right}"]);
-  }
-
   const socketArgs = config.socket ? ` -S '${config.socket.replace(/'/g, "'\\''")}'` : "";
   const cmd = `unset TMUX; tmux${socketArgs} attach -t '${sessionName.replace(/'/g, "'\\''")}'`;
-  const ok = runCommandOk("tmux", [
-    "split-window", "-d", "-h", "-l", `${config.layoutRightWidth}%`, cmd,
-  ]);
+
+  let ok: boolean;
+  if (numPanes > 1) {
+    // Respawn existing right pane in-place — no layout reflow
+    ok = runCommandOk("tmux", [
+      "respawn-pane", "-k", "-t", "{right}", cmd,
+    ]);
+  } else {
+    ok = runCommandOk("tmux", [
+      "split-window", "-d", "-h", "-l", `${config.layoutRightWidth}%`, cmd,
+    ]);
+  }
 
   if (ok) {
     const workdir = getSessionWorkdir(sessionName, config) ?? "~";

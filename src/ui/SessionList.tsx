@@ -13,11 +13,12 @@ export function SessionList({ sessions, selectedIndex }: Props): React.ReactElem
   const cols = stdout.columns || 80;
 
   // All widths are explicit — no bare inline Text elements between columns.
-  // marker(2) + name + status(7, includes leading space) + running(9, includes leading space) + preview(rest)
+  // index(3) + marker(2) + name + status(7) + running(9) + preview(rest)
+  const indexW = 3;
   const markerW = 2;
   const statusW = 7; // " [WAIT]" = 7
   const runningW = 9; // " 1h 23m" max ~9
-  const fixedW = markerW + statusW + runningW;
+  const fixedW = indexW + markerW + statusW + runningW;
   const flexW = Math.max(cols - fixedW, 16);
   const nameW = Math.min(30, Math.floor(flexW * 0.45));
   const previewW = flexW - nameW;
@@ -25,6 +26,9 @@ export function SessionList({ sessions, selectedIndex }: Props): React.ReactElem
   return (
     <Box flexDirection="column" flexGrow={1} overflow="hidden">
       <Box overflow="hidden">
+        <Box width={indexW} flexShrink={0}>
+          <Text bold> #</Text>
+        </Box>
         <Box width={markerW + nameW} flexShrink={0} paddingLeft={2}>
           <Text bold>Session</Text>
         </Box>
@@ -44,8 +48,12 @@ export function SessionList({ sessions, selectedIndex }: Props): React.ReactElem
       {sessions.map((session, i) => {
         const sel = i === selectedIndex;
         const marker = sel ? "> " : "  ";
+        const num = String(i + 1).padStart(2);
         return (
           <Box key={session.name} overflow="hidden">
+            <Box width={indexW} flexShrink={0}>
+              <Text bold={sel} inverse={sel} dimColor={!sel}>{num} </Text>
+            </Box>
             <Box width={markerW} flexShrink={0}>
               <Text bold={sel} inverse={sel}>{marker}</Text>
             </Box>

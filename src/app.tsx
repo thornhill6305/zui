@@ -28,9 +28,10 @@ type Dialog =
 
 interface AppProps {
   config: Config;
+  initialFocus?: number; // 1-based session index to auto-view on launch
 }
 
-export function App({ config: initialConfig }: AppProps): React.ReactElement {
+export function App({ config: initialConfig, initialFocus }: AppProps): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [termSize, setTermSize] = useState({ rows: stdout.rows, cols: stdout.columns });
@@ -55,11 +56,16 @@ export function App({ config: initialConfig }: AppProps): React.ReactElement {
     statusTimerRef.current = setTimeout(() => setStatusMessage(""), 3000);
   }, []);
 
-  // Refresh sessions periodically
+  // Refresh sessions periodically — only update state when data changed
+  const sessionsRef = useRef<string>("");
   useEffect(() => {
     const refresh = () => {
       const s = getSessions(config);
-      setSessions(s);
+      const key = s.map(x => `${x.name}|${x.status}|${x.running}|${x.preview}`).join("\n");
+      if (key !== sessionsRef.current) {
+        sessionsRef.current = key;
+        setSessions(s);
+      }
     };
     refresh();
     const interval = setInterval(refresh, config.refreshInterval * 1000);
@@ -71,6 +77,22 @@ export function App({ config: initialConfig }: AppProps): React.ReactElement {
     setProjects(discoverProjects(config));
   }, [config]);
 
+  // Auto-focus session from CLI arg (e.g. `zui 1`)
+  const focusHandled = useRef(false);
+  useEffect(() => {
+    if (!initialFocus || focusHandled.current || sessions.length === 0) return;
+    const idx = initialFocus - 1;
+    if (idx >= 0 && idx < sessions.length) {
+      focusHandled.current = true;
+      setSelected(idx);
+      const session = sessions[idx]!;
+      if (showSessionInPane(session.name, config)) {
+        focusRightPane();
+        setStatus(`Showing: ${session.name}`);
+      }
+    }
+  }, [sessions, initialFocus]);
+
   // Clamp selection
   useEffect(() => {
     if (sessions.length > 0 && selected >= sessions.length) {
@@ -81,6 +103,20 @@ export function App({ config: initialConfig }: AppProps): React.ReactElement {
   // Key handling (only when no dialog is open)
   useInput((input, key) => {
     if (dialog.type !== "none") return;
+
+    // 1-9: Jump to session by index
+    if (sessions.length > 0 && /^[1-9]$/.test(input)) {
+      const idx = parseInt(input, 10) - 1;
+      if (idx < sessions.length) {
+        setSelected(idx);
+        const session = sessions[idx]!;
+        if (showSessionInPane(session.name, config)) {
+          focusRightPane();
+          setStatus(`Showing: ${session.name}`);
+        }
+      }
+      return;
+    }
 
     if (input === "q" || key.escape) {
       killZuiSession();

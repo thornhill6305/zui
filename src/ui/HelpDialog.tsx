@@ -8,6 +8,7 @@ interface Props {
 const sections = [
   { title: "--- ZUI Keybindings ---", items: [] as [string, string][] },
   { title: "Navigation", items: [
+    ["1-9", "Jump to and view session by index"],
     ["\u2191/\u2193", "Move selection up/down"],
     ["Enter", "View selected session in right pane"],
     ["Tab", "Focus right pane (session output)"],
@@ -21,6 +22,10 @@ const sections = [
   { title: "Git & Worktrees", items: [
     ["g", "Toggle lazygit pane"],
     ["w", "Create new worktree"],
+  ] as [string, string][] },
+  { title: "CLI Commands", items: [
+    ["zui <N>", "Attach to Nth session"],
+    ["zui ls", "List sessions with indices"],
   ] as [string, string][] },
   { title: "Other", items: [
     ["s", "Open settings"],
