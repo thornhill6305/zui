@@ -34,11 +34,17 @@ A terminal UI for managing [Claude Code](https://docs.anthropic.com/en/docs/clau
 | **tmux** | `sudo apt install tmux` (Debian/Ubuntu) · `brew install tmux` (macOS) · [tmux wiki](https://github.com/tmux/tmux/wiki/Installing) |
 | **git** | `sudo apt install git` (Debian/Ubuntu) · `brew install git` (macOS) · [git-scm.com](https://git-scm.com/downloads) |
 | **Claude Code** | `npm install -g @anthropic-ai/claude-code` · [docs](https://docs.anthropic.com/en/docs/claude-code) |
+| **lazygit** *(optional)* | `sudo apt install lazygit` · `brew install lazygit` · [github](https://github.com/jesseduffield/lazygit#installation) — enables the `g` keybinding |
 
 ## Installation
 
 ```bash
-# Clone, build, and link globally
+npm install -g zui-agent-manager
+```
+
+### From source
+
+```bash
 git clone https://github.com/thornhill6305/zui.git
 cd zui
 npm install
@@ -57,11 +63,12 @@ zui
 
 | Key     | Action                                    |
 |---------|-------------------------------------------|
+| `1-9`   | Jump to and view session by index         |
+| `Enter` | View selected session in right pane       |
+| `Tab`   | Switch focus to session pane              |
 | `n`     | New Claude session (pick a project)       |
 | `y`     | New YOLO session (skip permissions)       |
 | `w`     | Create a new git worktree                 |
-| `Enter` | View selected session in right pane       |
-| `Tab`   | Switch focus to session pane              |
 | `g`     | Toggle lazygit pane                       |
 | `k`     | Kill selected session                     |
 | `x`     | Clean up a worktree                       |
@@ -69,6 +76,14 @@ zui
 | `h`     | Help                                      |
 | `r`     | Force refresh session list                |
 | `q`     | Quit                                      |
+
+### CLI Commands
+
+```bash
+zui              # Launch TUI
+zui 3            # Launch TUI focused on session #3
+zui ls           # List sessions with indices
+```
 
 ### How It Works
 
