@@ -1,6 +1,6 @@
 // src/app.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Box, useApp, useInput } from "ink";
+import { Box, useApp, useInput, useStdout } from "ink";
 import type { Config, Session, Project } from "./types.js";
 import { getSessions, spawnSession, killSession, showSessionInPane, getSessionWorkdir, sessionExists } from "./sessions.js";
 import { discoverProjects } from "./discovery.js";
@@ -32,12 +32,21 @@ interface AppProps {
 
 export function App({ config: initialConfig }: AppProps): React.ReactElement {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const [termSize, setTermSize] = useState({ rows: stdout.rows, cols: stdout.columns });
   const [config, setConfig] = useState(initialConfig);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selected, setSelected] = useState(0);
   const [statusMessage, setStatusMessage] = useState("");
   const [dialog, setDialog] = useState<Dialog>({ type: "none" });
+
+  // Track terminal resize
+  useEffect(() => {
+    const onResize = () => setTermSize({ rows: stdout.rows, cols: stdout.columns });
+    stdout.on("resize", onResize);
+    return () => { stdout.off("resize", onResize); };
+  }, [stdout]);
 
   const statusTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const setStatus = useCallback((msg: string) => {
@@ -320,7 +329,7 @@ export function App({ config: initialConfig }: AppProps): React.ReactElement {
   }
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column" height={termSize.rows}>
       <Header />
 
       {sessions.length === 0 ? (
