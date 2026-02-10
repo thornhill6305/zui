@@ -6,7 +6,8 @@ import { getSessions, spawnSession, killSession, showSessionInPane, getSessionWo
 import { discoverProjects } from "./discovery.js";
 import { createWorktree, removeWorktree } from "./worktrees.js";
 import { saveConfig } from "./config.js";
-import { focusRightPane, getPaneCount, killBottomRightPane, showLazygitPane, killZuiSession } from "./ui/layout.js";
+import { focusRightPane, focusBottomRightPane, closeRightPane, getPaneCount, killBottomRightPane, showLazygitPane, killZuiSession } from "./ui/layout.js";
+import { unregisterAltBindings } from "./ui/keybindings.js";
 import { Header } from "./ui/Header.js";
 import { Footer } from "./ui/Footer.js";
 import { SessionList } from "./ui/SessionList.js";
@@ -100,8 +101,44 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     }
   }, [sessions, selected]);
 
-  // Key handling (only when no dialog is open)
+  // Key handling
   useInput((input, key) => {
+    // Alt-key remote control (works regardless of dialog state)
+    if (key.meta && key.return && sessions.length > 0) {
+      viewSession();
+      return;
+    }
+    // Alt+Tab handled by tmux directly (select-pane to ZUI pane)
+
+    if (key.meta && input.length > 0) {
+      if (/^[0-9]$/.test(input) && sessions.length > 0) {
+        const idx = input === "0" ? 9 : parseInt(input, 10) - 1;
+        if (idx < sessions.length) {
+          setSelected(idx);
+          const session = sessions[idx]!;
+          if (showSessionInPane(session.name, config)) {
+            focusRightPane();
+            setStatus(`Showing: ${session.name}`);
+          }
+        }
+        return;
+      }
+      if (input === "q") { shutdownZui(); return; }
+      if (input === "n") { launchSession(false); return; }
+      if (input === "y") { launchSession(true); return; }
+      if (input === "k" && sessions.length > 0) { killSessionAction(); return; }
+      if (input === "x") { cleanupWorktree(); return; }
+      if (input === "g" && sessions.length > 0) { showLazygitFromRemote(); return; }
+      if (input === "w") { createWorktreeAction(); return; }
+      if (input === "s") { setDialog({ type: "settings" }); return; }
+      if (input === "h") { setDialog({ type: "help" }); return; }
+      if (input === "c") {
+        if (closeRightPane()) setStatus("Pane closed");
+        return;
+      }
+      return;
+    }
+
     if (dialog.type !== "none") return;
 
     // 1-9: Jump to session by index
@@ -119,8 +156,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     }
 
     if (input === "q" || key.escape) {
-      killZuiSession();
-      exit();
+      shutdownZui();
       return;
     }
 
@@ -151,6 +187,12 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     if (key.tab) focusRightPane();
   });
 
+  function shutdownZui() {
+    unregisterAltBindings();
+    killZuiSession();
+    exit();
+  }
+
   function viewSession() {
     const session = sessions[selected];
     if (!session) return;
@@ -159,6 +201,34 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
       setStatus(`Showing: ${session.name}`);
     } else {
       setStatus("Error: Failed to open pane");
+    }
+  }
+
+  function showLazygitFromRemote() {
+    const numPanes = getPaneCount();
+    const session = sessions[selected];
+    if (!session) return;
+    if (numPanes >= 3) {
+      focusBottomRightPane();
+      return;
+    }
+    const workdir = getSessionWorkdir(session.name, config);
+    if (!workdir) {
+      setStatus("Error: Can't find session workdir");
+      return;
+    }
+    if (numPanes < 2) {
+      if (showSessionInPane(session.name, config)) {
+        setTimeout(() => {
+          showLazygitPane(workdir, config.layoutRightWidth, config.layoutLazygitHeight);
+          focusBottomRightPane();
+          setStatus(`View + Git: ${session.name}`);
+        }, 200);
+      }
+    } else {
+      showLazygitPane(workdir, config.layoutRightWidth, config.layoutLazygitHeight);
+      focusBottomRightPane();
+      setStatus(`Git: ${workdir.split("/").pop()}`);
     }
   }
 

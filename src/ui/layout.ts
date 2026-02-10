@@ -43,6 +43,15 @@ export function killBottomRightPane(): void {
   runCommand("tmux", ["kill-pane", "-t", "{bottom-right}"]);
 }
 
+export function closeRightPane(): boolean {
+  if (getPaneCount() <= 1) return false;
+  return runCommandOk("tmux", ["kill-pane", "-a", "-t", "zui-manager:zui.0"]);
+}
+
+export function focusBottomRightPane(): void {
+  runCommand("tmux", ["select-pane", "-t", "{bottom-right}"]);
+}
+
 export function killZuiSession(): void {
   runCommand("tmux", ["kill-session", "-t", "zui-manager"]);
 }

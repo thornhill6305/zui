@@ -33,6 +33,18 @@ const sections = [
     ["h", "This help screen"],
     ["q/Esc", "Quit ZUI"],
   ] as [string, string][] },
+  { title: "Remote Control (from session pane)", items: [
+    ["Alt+1-9", "Jump to session by index"],
+    ["Alt+0", "Jump to session 10"],
+    ["Alt+Enter", "View selected session"],
+    ["Alt+Tab", "Toggle focus (ZUI \u2194 pane)"],
+    ["Alt+n/y", "New / YOLO session"],
+    ["Alt+k", "Kill selected session"],
+    ["Alt+g", "Show + focus lazygit"],
+    ["Alt+w", "Create worktree"],
+    ["Alt+c", "Close right pane"],
+    ["Alt+q", "Quit ZUI"],
+  ] as [string, string][] },
 ];
 
 export function HelpDialog({ onClose }: Props): React.ReactElement {

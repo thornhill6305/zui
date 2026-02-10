@@ -8,6 +8,7 @@ import { loadConfig } from "./config.js";
 import { getSessions } from "./sessions.js";
 import { parseIndex, formatSessionLine } from "./cli.js";
 import type { Config } from "./types.js";
+import { registerAltBindings, unregisterAltBindings } from "./ui/keybindings.js";
 
 function shellQuote(s: string): string {
   return "'" + s.replace(/'/g, "'\\''") + "'";
@@ -90,6 +91,10 @@ function main(): void {
   }
   const initialFocus = focusArg ? parseInt(focusArg, 10) : undefined;
   const config = loadConfig();
+  registerAltBindings();
+  process.on("exit", () => unregisterAltBindings());
+  process.on("SIGINT", () => { unregisterAltBindings(); process.exit(); });
+  process.on("SIGTERM", () => { unregisterAltBindings(); process.exit(); });
   render(React.createElement(App, { config, initialFocus }));
 }
 
