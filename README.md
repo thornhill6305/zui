@@ -2,19 +2,7 @@
 
 A terminal UI for managing [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agents running in tmux sessions.
 
-```
-┌─────────────────────── zui - Agent Manager ───────────────────────┐
-│                                                                    │
-│  Session                Status    Running   Preview                │
-│  ──────────────────────────────────────────────────────────────    │
-│> myapp-feat-auth        [WORK]    12m 34s   Implementing login...  │
-│  myapp-fix-api          [WAIT]    3m 12s    Allow tool use? (y/n)  │
-│  myapp-main             [IDLE]    1h 5m     >                      │
-│                                                                    │
-│ Ent:View g:Git Tab:Pane n:New y:YOLO w:Tree s:Set h:Help k:Kill  │
-└────────────────────────────────────────────────────────────────────┘
-```
-
+<img width="1728" height="1087" alt="image" src="https://github.com/user-attachments/assets/edfcb7fe-b18f-49a4-a385-e2d76bfb1a8f" />
 
 ## Features
 
