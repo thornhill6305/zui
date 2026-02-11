@@ -53,6 +53,7 @@
   .terminal-wrapper {
     flex: 1;
     display: flex;
+    min-height: 0;
     overflow: hidden;
     background: var(--bg-primary);
   }
@@ -60,12 +61,16 @@
   .terminal-container {
     flex: 1;
     padding: 4px;
-    height: 100%;
     min-height: 0;
+    overflow: hidden;
   }
 
   .terminal-container :global(.xterm) {
     height: 100%;
+  }
+
+  .terminal-container :global(.xterm-screen) {
+    max-height: 100%;
   }
 
   .terminal-container :global(.xterm-viewport) {

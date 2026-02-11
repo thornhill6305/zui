@@ -74,3 +74,39 @@ export function stopAutoRefresh(): void {
     refreshTimer = null;
   }
 }
+
+export async function createWorktreeAndSession(
+  repo: string,
+  branch: string,
+  yolo: boolean,
+): Promise<string | null> {
+  const wtRes = await fetch('/api/worktrees', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ repo, branch }),
+  });
+  const wtData = await wtRes.json();
+  if (!wtData.ok) throw new Error(wtData.error ?? 'Worktree creation failed');
+
+  const sessionName = await createSession(wtData.path, yolo);
+  await fetchProjects();
+  return sessionName;
+}
+
+export async function removeWorktree(
+  parentRepo: string,
+  worktreePath: string,
+  branch: string,
+): Promise<boolean> {
+  const res = await fetch('/api/worktrees', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ parentRepo, worktreePath, branch }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    await fetchProjects();
+    await fetchSessions();
+  }
+  return data.ok;
+}

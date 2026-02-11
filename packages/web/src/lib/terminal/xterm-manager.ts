@@ -12,6 +12,7 @@ export class XtermManager {
   private container: HTMLElement | null = null;
   // Issue #5: Track disposed state to prevent race conditions
   private disposed = false;
+  private touchCleanup: (() => void) | null = null;
 
   open(container: HTMLElement, session: string): void {
     this.dispose();
@@ -83,6 +84,11 @@ export class XtermManager {
       this.wsClient?.sendResize(cols, rows);
     });
 
+    // Touch-to-scroll for tmux: xterm.js converts wheel→up/down keys (for tmux
+    // scrollback) but does NOT do the same for touch. Synthesize wheel events
+    // from touch gestures so mobile scrolling works in tmux sessions.
+    this.touchCleanup = this.bindTouchScroll(container);
+
     this.resizeObserver = new ResizeObserver(() => {
       this.fitAndSync();
     });
@@ -108,12 +114,49 @@ export class XtermManager {
     }
   }
 
+  private bindTouchScroll(container: HTMLElement): () => void {
+    let lastTouchY = 0;
+
+    const onTouchStart = (ev: TouchEvent): void => {
+      lastTouchY = ev.touches[0].clientY;
+    };
+
+    const onTouchMove = (ev: TouchEvent): void => {
+      const currentY = ev.touches[0].clientY;
+      const deltaY = lastTouchY - currentY;
+      lastTouchY = currentY;
+
+      if (Math.abs(deltaY) < 2) return;
+
+      // Dispatch a synthetic wheel event that xterm.js will convert to
+      // up/down keys for tmux scroll (when buffer has no scrollback)
+      const wheelEvent = new WheelEvent('wheel', {
+        deltaY,
+        deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+        bubbles: true,
+        cancelable: true,
+      });
+      container.querySelector('.xterm')?.dispatchEvent(wheelEvent);
+      ev.preventDefault();
+    };
+
+    container.addEventListener('touchstart', onTouchStart, { passive: true });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+    };
+  }
+
   focus(): void {
     this.terminal?.focus();
   }
 
   dispose(): void {
     this.disposed = true;
+    this.touchCleanup?.();
+    this.touchCleanup = null;
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     this.wsClient?.disconnect();

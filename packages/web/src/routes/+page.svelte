@@ -4,6 +4,7 @@
   import Terminal from '$lib/components/Terminal.svelte';
   import StatusBar from '$lib/components/StatusBar.svelte';
   import ProjectPicker from '$lib/components/ProjectPicker.svelte';
+  import WorktreePicker from '$lib/components/WorktreePicker.svelte';
   import MobileDrawer from '$lib/components/MobileDrawer.svelte';
   import { sessions, projects } from '$lib/stores/sessions';
   import { selectedSession, isMobile, drawerOpen } from '$lib/stores/ui';
@@ -22,13 +23,15 @@
     isMobile.set(window.innerWidth < 768);
   }
 
-  // Virtual keyboard detection — shrink terminal when keyboard is shown
-  let viewportHeight = $state('100vh');
+  // Shrink app when virtual keyboard opens (mobile)
+  let appEl: HTMLElement | undefined = $state();
 
   function handleViewportResize() {
-    if (window.visualViewport) {
-      viewportHeight = `${window.visualViewport.height}px`;
-    }
+    if (!appEl || !window.visualViewport) return;
+    // Set explicit height from visualViewport so the flex layout reflows
+    // and the ResizeObserver on the terminal container triggers a refit
+    appEl.style.height = `${window.visualViewport.height}px`;
+    appEl.style.bottom = 'auto';
   }
 
   onMount(() => {
@@ -64,7 +67,7 @@
   <title>{$selectedSession ? `${$selectedSession} — ZUI` : 'ZUI'}</title>
 </svelte:head>
 
-<div class="app" style:height={viewportHeight}>
+<div class="app" bind:this={appEl}>
   <!-- Desktop sidebar -->
   {#if !$isMobile}
     <aside class="desktop-sidebar">
@@ -98,12 +101,14 @@
 
   <!-- Project picker dialog -->
   <ProjectPicker onCreated={handleCreated} />
+  <WorktreePicker onCreated={handleCreated} />
 </div>
 
 <style>
   .app {
+    position: fixed;
+    inset: 0;
     display: flex;
-    height: 100vh;
     overflow: hidden;
   }
 
