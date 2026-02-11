@@ -4,10 +4,8 @@ import process from "node:process";
 import React from "react";
 import { render } from "ink";
 import { App } from "./app.js";
-import { loadConfig } from "./config.js";
-import { getSessions } from "./sessions.js";
-import { parseIndex, formatSessionLine } from "./cli.js";
-import type { Config } from "./types.js";
+import { loadConfig, getSessions, parseIndex, formatSessionLine } from "@zui/core";
+import type { Config } from "@zui/core";
 import { registerAltBindings, unregisterAltBindings } from "./ui/keybindings.js";
 
 function shellQuote(s: string): string {

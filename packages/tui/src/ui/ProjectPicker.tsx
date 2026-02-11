@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import type { Project } from "../types.js";
-import { projectDisplayName } from "../types.js";
+import type { Project } from "@zui/core";
+import { projectDisplayName } from "@zui/core";
 
 interface Props {
   projects: Project[];

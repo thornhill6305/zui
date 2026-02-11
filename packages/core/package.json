@@ -1,0 +1,11 @@
+{
+  "name": "@zui/core",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "smol-toml": "^1.3.0"
+  }
+}

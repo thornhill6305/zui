@@ -1,5 +1,5 @@
 // src/ui/layout.ts
-import { runCommand, runCommandOk } from "../shell.js";
+import { runCommand, runCommandOk } from "@zui/core";
 
 export function focusRightPane(): void {
   runCommand("tmux", ["select-pane", "-R"]);

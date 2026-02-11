@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text, useStdout } from "ink";
-import type { Session } from "../types.js";
+import type { Session } from "@zui/core";
 import { statusColor } from "./theme.js";
 
 interface Props {
