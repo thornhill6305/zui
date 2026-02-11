@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
   const config = loadConfig();
-  const sessions = getSessions(config);
+  const sessions = getSessions(config, { exclude: ['zui-manager'], skipOwnSession: true });
   return json(sessions);
 };
 

@@ -24,7 +24,7 @@ function getOwnSessionName(socket: string): string | null {
   return output || null;
 }
 
-export function getSessions(config: Config): Session[] {
+export function getSessions(config: Config, options?: { exclude?: string[]; skipOwnSession?: boolean }): Session[] {
   const output = runTmux(
     ["list-sessions", "-F", "#{session_name}|#{session_created}|#{session_activity}"],
     config.socket,
@@ -33,7 +33,8 @@ export function getSessions(config: Config): Session[] {
 
   const sessions: Session[] = [];
   const now = Date.now() / 1000;
-  const ownSession = getOwnSessionName(config.socket);
+  const ownSession = options?.skipOwnSession ? null : getOwnSessionName(config.socket);
+  const excludeSet = new Set(options?.exclude ?? []);
 
   for (const line of output.split("\n")) {
     if (!line) continue;
@@ -42,6 +43,7 @@ export function getSessions(config: Config): Session[] {
 
     const name = parts[0]!;
     if (name === ownSession) continue;
+    if (excludeSet.has(name)) continue;
 
     const created = parseInt(parts[1]!, 10);
     const lastActivity = parseInt(parts[2]!, 10);
