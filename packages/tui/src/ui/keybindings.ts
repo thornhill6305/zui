@@ -1,5 +1,5 @@
 // src/ui/keybindings.ts
-import { runCommand, runCommandOk } from "../shell.js";
+import { runCommand, runCommandOk } from "@zui/core";
 
 const ALT_KEYS = [
   "M-0", "M-1", "M-2", "M-3", "M-4", "M-5", "M-6", "M-7", "M-8", "M-9",

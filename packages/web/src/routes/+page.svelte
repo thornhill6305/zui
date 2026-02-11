@@ -1,0 +1,165 @@
+<script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
+  import Sidebar from '$lib/components/Sidebar.svelte';
+  import Terminal from '$lib/components/Terminal.svelte';
+  import StatusBar from '$lib/components/StatusBar.svelte';
+  import ProjectPicker from '$lib/components/ProjectPicker.svelte';
+  import MobileDrawer from '$lib/components/MobileDrawer.svelte';
+  import { sessions, projects } from '$lib/stores/sessions';
+  import { selectedSession, isMobile, drawerOpen } from '$lib/stores/ui';
+  import type { PageData } from './$types';
+
+  let { data }: { data: PageData } = $props();
+
+  // Hydrate stores from SSR data
+  $effect(() => {
+    sessions.set(data.sessions);
+    projects.set(data.projects);
+  });
+
+  // Track viewport for responsive layout
+  function checkMobile() {
+    isMobile.set(window.innerWidth < 768);
+  }
+
+  // Virtual keyboard detection — shrink terminal when keyboard is shown
+  let viewportHeight = $state('100vh');
+
+  function handleViewportResize() {
+    if (window.visualViewport) {
+      viewportHeight = `${window.visualViewport.height}px`;
+    }
+  }
+
+  onMount(() => {
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    window.visualViewport?.addEventListener('resize', handleViewportResize);
+
+    // Import xterm.js CSS dynamically (client-only)
+    import('@xterm/xterm/css/xterm.css');
+  });
+
+  onDestroy(() => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', checkMobile);
+      window.visualViewport?.removeEventListener('resize', handleViewportResize);
+    }
+  });
+
+  function handleSessionSelect(name: string) {
+    selectedSession.set(name);
+  }
+
+  function handleCreated(sessionName: string) {
+    selectedSession.set(sessionName);
+  }
+
+  function openDrawer() {
+    drawerOpen.set(true);
+  }
+</script>
+
+<svelte:head>
+  <title>{$selectedSession ? `${$selectedSession} — ZUI` : 'ZUI'}</title>
+</svelte:head>
+
+<div class="app" style:height={viewportHeight}>
+  <!-- Desktop sidebar -->
+  {#if !$isMobile}
+    <aside class="desktop-sidebar">
+      <Sidebar onSessionSelect={handleSessionSelect} />
+    </aside>
+  {/if}
+
+  <!-- Main content -->
+  <main class="main">
+    {#if $isMobile}
+      <div class="mobile-topbar">
+        <button class="menu-btn" onclick={openDrawer} aria-label="Open menu">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <rect x="2" y="4" width="16" height="2" rx="1" />
+            <rect x="2" y="9" width="16" height="2" rx="1" />
+            <rect x="2" y="14" width="16" height="2" rx="1" />
+          </svg>
+        </button>
+        <span class="topbar-title">
+          {$selectedSession ?? 'ZUI'}
+        </span>
+      </div>
+    {/if}
+
+    <Terminal session={$selectedSession} />
+    <StatusBar />
+  </main>
+
+  <!-- Mobile drawer -->
+  <MobileDrawer onSessionSelect={handleSessionSelect} />
+
+  <!-- Project picker dialog -->
+  <ProjectPicker onCreated={handleCreated} />
+</div>
+
+<style>
+  .app {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .desktop-sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px;
+    height: var(--topbar-height);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .menu-btn {
+    color: var(--text-secondary);
+    padding: 8px;
+    border-radius: 6px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .menu-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .topbar-title {
+    font-size: 14px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 767px) {
+    .desktop-sidebar {
+      display: none;
+    }
+  }
+</style>

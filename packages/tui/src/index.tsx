@@ -1,13 +1,14 @@
 // src/index.tsx
-import { execFileSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 import React from "react";
 import { render } from "ink";
 import { App } from "./app.js";
-import { loadConfig } from "./config.js";
-import { getSessions } from "./sessions.js";
-import { parseIndex, formatSessionLine } from "./cli.js";
-import type { Config } from "./types.js";
+import { loadConfig, getSessions, parseIndex, formatSessionLine } from "@zui/core";
+import type { Config } from "@zui/core";
 import { registerAltBindings, unregisterAltBindings } from "./ui/keybindings.js";
 
 function shellQuote(s: string): string {
@@ -35,6 +36,48 @@ function handleList(config: Config): void {
   }
 }
 
+function handleServe(): void {
+  // Resolve the web package relative to this file.
+  // In the built bundle, __dirname resolves to packages/tui/dist/.
+  // The web package lives at packages/web/ (sibling of packages/tui/).
+  const tuiDir = typeof __dirname !== "undefined"
+    ? __dirname
+    : dirname(fileURLToPath(import.meta.url));
+  const webDir = join(tuiDir, "..", "..", "web");
+  const serverEntry = join(webDir, "server.js");
+
+  if (!existsSync(serverEntry)) {
+    console.error(
+      `Web server not found at ${serverEntry}\n` +
+      "Run 'npm run build:web' from the zui root first.",
+    );
+    process.exit(1);
+  }
+
+  // Parse --port and --host flags
+  let port = "3030";
+  let host = "127.0.0.1";
+  const args = process.argv.slice(3);
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === "--port" || args[i] === "-p") && args[i + 1]) {
+      port = args[++i]!;
+    } else if ((args[i] === "--host" || args[i] === "-h") && args[i + 1]) {
+      host = args[++i]!;
+    }
+  }
+
+  console.log(`Starting ZUI web server on http://${host}:${port}`);
+
+  try {
+    execSync(`node ${shellQuote(serverEntry)}`, {
+      stdio: "inherit",
+      env: { ...process.env, PORT: port, HOST: host },
+    });
+  } catch {
+    // Server exited
+  }
+}
+
 function main(): void {
   // Headless subcommands — no TUI, no tmux wrap needed
   const sub = process.argv[2];
@@ -50,6 +93,11 @@ function main(): void {
     const config = loadConfig();
     handleList(config);
     process.exit(0);
+  }
+
+  if (sub === "serve") {
+    handleServe();
+    return;
   }
 
   // TUI requires a terminal

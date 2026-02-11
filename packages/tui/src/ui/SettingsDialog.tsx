@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import type { Config } from "../types.js";
+import type { Config } from "@zui/core";
 
 interface Props {
   config: Config;

@@ -1,11 +1,12 @@
 // src/app.tsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, useApp, useInput, useStdout } from "ink";
-import type { Config, Session, Project } from "./types.js";
-import { getSessions, spawnSession, killSession, showSessionInPane, getSessionWorkdir, sessionExists } from "./sessions.js";
-import { discoverProjects } from "./discovery.js";
-import { createWorktree, removeWorktree } from "./worktrees.js";
-import { saveConfig } from "./config.js";
+import type { Config, Session, Project } from "@zui/core";
+import {
+  getSessions, spawnSession, killSession, showSessionInPane,
+  getSessionWorkdir, sessionExists, discoverProjects,
+  createWorktree, removeWorktree, saveConfig,
+} from "@zui/core";
 import { focusRightPane, focusBottomRightPane, closeRightPane, getPaneCount, killBottomRightPane, showLazygitPane, killZuiSession } from "./ui/layout.js";
 import { unregisterAltBindings } from "./ui/keybindings.js";
 import { Header } from "./ui/Header.js";
