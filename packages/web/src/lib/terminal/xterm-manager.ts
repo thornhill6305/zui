@@ -52,7 +52,6 @@ export class XtermManager {
     this.terminal.loadAddon(new WebLinksAddon());
 
     this.terminal.open(container);
-    this.fitAddon.fit();
 
     // Connect WebSocket — guard callbacks with disposed check (Issue #5)
     this.wsClient = new WebSocketClient(
@@ -79,25 +78,28 @@ export class XtermManager {
       this.wsClient?.send(data);
     });
 
-    // Send initial size
-    this.wsClient.sendResize(this.terminal.cols, this.terminal.rows);
-
-    // Resize handling
+    // Resize handling — always send size after fit so tmux PTY matches
     this.terminal.onResize(({ cols, rows }) => {
       this.wsClient?.sendResize(cols, rows);
     });
 
     this.resizeObserver = new ResizeObserver(() => {
-      this.fit();
+      this.fitAndSync();
     });
     this.resizeObserver.observe(container);
+
+    // Defer initial fit until layout is computed
+    requestAnimationFrame(() => {
+      this.fitAndSync();
+    });
   }
 
-  // Issue #14: Log resize errors when container is visible
-  fit(): void {
-    if (this.fitAddon && this.container) {
+  private fitAndSync(): void {
+    if (this.fitAddon && this.container && this.terminal) {
       try {
         this.fitAddon.fit();
+        // Always send current size to sync the PTY, even if cols/rows didn't change
+        this.wsClient?.sendResize(this.terminal.cols, this.terminal.rows);
       } catch (err) {
         if (this.container.offsetWidth > 0 && this.container.offsetHeight > 0) {
           console.warn('Terminal fit failed:', err);

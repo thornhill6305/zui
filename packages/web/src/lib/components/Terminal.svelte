@@ -60,6 +60,8 @@
   .terminal-container {
     flex: 1;
     padding: 4px;
+    height: 100%;
+    min-height: 0;
   }
 
   .terminal-container :global(.xterm) {
