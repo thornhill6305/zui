@@ -8,6 +8,16 @@
 
   let { onSessionSelect }: Props = $props();
 
+  let drawerEl: HTMLElement | undefined = $state();
+
+  // Issue #12: Focus first interactive element when drawer opens
+  $effect(() => {
+    if ($drawerOpen && drawerEl) {
+      const firstFocusable = drawerEl.querySelector<HTMLElement>('button, a, input');
+      firstFocusable?.focus();
+    }
+  });
+
   // Touch handling for swipe-to-close
   let touchStartX = 0;
   let touchCurrentX = 0;
@@ -45,10 +55,17 @@
 
 {#if $isMobile && $drawerOpen}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="drawer-overlay" onclick={handleOverlayClick} onkeydown={handleOverlayKeydown}>
+  <div
+    class="drawer-overlay"
+    role="dialog"
+    aria-modal="true"
+    onclick={handleOverlayClick}
+    onkeydown={handleOverlayKeydown}
+  >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="drawer"
+      bind:this={drawerEl}
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
       ontouchstart={handleTouchStart}

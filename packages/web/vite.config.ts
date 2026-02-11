@@ -7,11 +7,16 @@ function wsPlugin() {
   return {
     name: 'zui-ws-dev',
     configureServer(server: ViteDevServer) {
-      import('./lib/ws-server.js').then(({ setupWebSocket }) => {
-        if (server.httpServer) {
-          setupWebSocket(server.httpServer);
-        }
-      });
+      // Issue #17: Add error handling for dynamic import
+      import('./lib/ws-server.js')
+        .then(({ setupWebSocket }) => {
+          if (server.httpServer) {
+            setupWebSocket(server.httpServer);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to setup WebSocket server:', err);
+        });
     },
   };
 }

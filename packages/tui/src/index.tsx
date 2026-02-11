@@ -56,7 +56,7 @@ function handleServe(): void {
 
   // Parse --port and --host flags
   let port = "3030";
-  let host = "0.0.0.0";
+  let host = "127.0.0.1";
   const args = process.argv.slice(3);
   for (let i = 0; i < args.length; i++) {
     if ((args[i] === "--port" || args[i] === "-p") && args[i + 1]) {

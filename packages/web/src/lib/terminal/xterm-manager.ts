@@ -10,9 +10,12 @@ export class XtermManager {
   private wsClient: WebSocketClient | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private container: HTMLElement | null = null;
+  // Issue #5: Track disposed state to prevent race conditions
+  private disposed = false;
 
   open(container: HTMLElement, session: string): void {
     this.dispose();
+    this.disposed = false;
     this.container = container;
 
     this.terminal = new Terminal({
@@ -51,12 +54,16 @@ export class XtermManager {
     this.terminal.open(container);
     this.fitAddon.fit();
 
-    // Connect WebSocket
+    // Connect WebSocket — guard callbacks with disposed check (Issue #5)
     this.wsClient = new WebSocketClient(
       session,
-      (data) => this.terminal?.write(data),
+      (data) => {
+        if (!this.disposed) this.terminal?.write(data);
+      },
       () => {
-        this.terminal?.write('\r\n\x1b[90m[session disconnected]\x1b[0m\r\n');
+        if (!this.disposed) {
+          this.terminal?.write('\r\n\x1b[90m[session disconnected]\x1b[0m\r\n');
+        }
       },
     );
     this.wsClient.connect();
@@ -86,12 +93,15 @@ export class XtermManager {
     this.resizeObserver.observe(container);
   }
 
+  // Issue #14: Log resize errors when container is visible
   fit(): void {
     if (this.fitAddon && this.container) {
       try {
         this.fitAddon.fit();
-      } catch {
-        // container might be hidden/zero-size
+      } catch (err) {
+        if (this.container.offsetWidth > 0 && this.container.offsetHeight > 0) {
+          console.warn('Terminal fit failed:', err);
+        }
       }
     }
   }
@@ -101,6 +111,7 @@ export class XtermManager {
   }
 
   dispose(): void {
+    this.disposed = true;
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     this.wsClient?.disconnect();

@@ -17,7 +17,15 @@ function getTmuxSocket() {
     try {
       const content = readFileSync(p, 'utf-8');
       const match = content.match(/^socket\s*=\s*"([^"]*)"/m);
-      if (match) return match[1];
+      if (match) {
+        const socketPath = match[1];
+        // Issue #1: Validate socket path
+        if (!/^[a-zA-Z0-9_.\/-]+$/.test(socketPath)) {
+          console.warn('Invalid tmux socket path in config, using default');
+          return '';
+        }
+        return socketPath;
+      }
     } catch {
       // ignore
     }
@@ -25,7 +33,12 @@ function getTmuxSocket() {
   return '';
 }
 
-const port = parseInt(process.env.PORT || '3030', 10);
+// Issue #10: Validate port
+let port = parseInt(process.env.PORT || '3030', 10);
+if (isNaN(port) || port < 1 || port > 65535) {
+  console.error(`Invalid PORT: ${process.env.PORT}, using default 3030`);
+  port = 3030;
+}
 const host = process.env.HOST || '0.0.0.0';
 
 const server = createServer(handler);
@@ -35,3 +48,15 @@ setupWebSocket(server, { tmuxSocket: getTmuxSocket() });
 server.listen(port, host, () => {
   console.log(`ZUI web server listening on http://${host}:${port}`);
 });
+
+// Issue #11: Graceful shutdown
+function shutdown(signal) {
+  console.log(`${signal} received, closing server gracefully...`);
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

@@ -4,6 +4,10 @@ import type { Session, Project } from '@zui/core';
 export const sessions = writable<Session[]>([]);
 export const projects = writable<Project[]>([]);
 
+// Issue #15: Add loading and error states
+export const sessionsLoading = writable(false);
+export const sessionsError = writable<string | null>(null);
+
 export const sessionsByStatus = derived(sessions, ($sessions) => ({
   working: $sessions.filter((s) => s.status === '[WORK]'),
   waiting: $sessions.filter((s) => s.status === '[WAIT]'),
@@ -14,11 +18,17 @@ export const sessionsByStatus = derived(sessions, ($sessions) => ({
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 export async function fetchSessions(): Promise<void> {
+  sessionsLoading.set(true);
+  sessionsError.set(null);
+
   try {
     const res = await fetch('/api/sessions');
-    if (res.ok) sessions.set(await res.json());
-  } catch {
-    // network error — keep stale data
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    sessions.set(await res.json());
+  } catch (err) {
+    sessionsError.set(err instanceof Error ? err.message : 'Network error');
+  } finally {
+    sessionsLoading.set(false);
   }
 }
 

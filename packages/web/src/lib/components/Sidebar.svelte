@@ -10,8 +10,11 @@
 
   let { onSessionSelect }: Props = $props();
 
+  // Issue #13: Adapt refresh interval based on connection type
   onMount(() => {
-    startAutoRefresh(2000);
+    const conn = (navigator as any).connection;
+    const interval = conn?.effectiveType === '4g' ? 2000 : 5000;
+    startAutoRefresh(interval);
   });
 
   onDestroy(() => {

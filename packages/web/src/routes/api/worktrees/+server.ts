@@ -10,8 +10,9 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ ok: false, error: 'Missing repo or branch' }, { status: 400 });
   }
 
-  // Validate branch name
-  if (!/^[a-zA-Z0-9_./-]+$/.test(branch)) {
+  // Issue #8: Tighten branch name validation — disallow path traversal
+  const parts = branch.split('/');
+  if (parts.length > 3 || parts.some(p => p === '' || p === '.' || p === '..') || !/^[a-zA-Z0-9_./-]+$/.test(branch)) {
     return json({ ok: false, error: 'Invalid branch name' }, { status: 400 });
   }
 

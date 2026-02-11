@@ -53,14 +53,20 @@ export class WebSocketClient {
     };
   }
 
+  // Issue #6: Check backpressure before sending
   send(data: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
+      if (this.ws.bufferedAmount > 1024 * 1024) {
+        console.warn('WebSocket buffer full, dropping message');
+        return;
+      }
       this.ws.send(data);
     }
   }
 
   sendResize(cols: number, rows: number): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
+      if (this.ws.bufferedAmount > 1024 * 1024) return;
       this.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
     }
   }
@@ -76,11 +82,16 @@ export class WebSocketClient {
     connectionState.set('disconnected');
   }
 
+  // Issue #9: Add jitter to prevent thundering herd
   private scheduleReconnect(): void {
+    const jitter = 0.75 + Math.random() * 0.5; // ±25%
+    const delay = Math.min(this.reconnectDelay * jitter, this.maxReconnectDelay);
+
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
-    }, this.reconnectDelay);
+    }, delay);
+
     this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, this.maxReconnectDelay);
   }
 }
