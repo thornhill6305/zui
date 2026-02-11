@@ -2,7 +2,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebSocketClient } from './websocket-client';
-import { activeSession, connectionState } from '$lib/stores/terminal';
+import { activeSession, connectionState, xtermManager } from '$lib/stores/terminal';
 
 export class XtermManager {
   private terminal: Terminal | null = null;
@@ -68,6 +68,7 @@ export class XtermManager {
     );
     this.wsClient.connect();
     activeSession.set(session);
+    xtermManager.set(this);
 
     // Terminal input → WebSocket
     this.terminal.onData((data) => {
@@ -149,6 +150,10 @@ export class XtermManager {
     };
   }
 
+  sendData(data: string): void {
+    this.wsClient?.send(data);
+  }
+
   focus(): void {
     this.terminal?.focus();
   }
@@ -165,6 +170,7 @@ export class XtermManager {
     this.terminal = null;
     this.fitAddon = null;
     this.container = null;
+    xtermManager.set(null);
     activeSession.set(null);
     connectionState.set('disconnected');
   }

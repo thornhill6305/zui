@@ -6,8 +6,10 @@
   import ProjectPicker from '$lib/components/ProjectPicker.svelte';
   import WorktreePicker from '$lib/components/WorktreePicker.svelte';
   import MobileDrawer from '$lib/components/MobileDrawer.svelte';
+  import KeyboardToolbar from '$lib/components/KeyboardToolbar.svelte';
   import { sessions, projects } from '$lib/stores/sessions';
   import { selectedSession, isMobile, drawerOpen } from '$lib/stores/ui';
+  import { activeSession } from '$lib/stores/terminal';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -25,13 +27,13 @@
 
   // Shrink app when virtual keyboard opens (mobile)
   let appEl: HTMLElement | undefined = $state();
+  let keyboardOpen = $state(false);
 
   function handleViewportResize() {
     if (!appEl || !window.visualViewport) return;
-    // Set explicit height from visualViewport so the flex layout reflows
-    // and the ResizeObserver on the terminal container triggers a refit
     appEl.style.height = `${window.visualViewport.height}px`;
     appEl.style.bottom = 'auto';
+    keyboardOpen = window.visualViewport.height < window.innerHeight * 0.85;
   }
 
   onMount(() => {
@@ -93,6 +95,9 @@
     {/if}
 
     <Terminal session={$selectedSession} />
+    {#if keyboardOpen && $isMobile && $activeSession}
+      <KeyboardToolbar />
+    {/if}
     <StatusBar />
   </main>
 
