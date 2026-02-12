@@ -12,8 +12,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     Keyboard: {
-      // Resize the webview when the keyboard opens (matches our visualViewport logic)
-      resize: 'native',
+      // Resize is handled natively by ZUIBridgeViewController's
+      // keyboardLayoutGuide constraint — don't let Capacitor also resize.
+      resize: 'none',
     },
   },
 };
