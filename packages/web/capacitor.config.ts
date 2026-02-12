@@ -10,13 +10,8 @@ const config: CapacitorConfig = {
     url: 'https://YOUR_TAILSCALE_HOST:3030',
     cleartext: false,
   },
-  plugins: {
-    Keyboard: {
-      // Resize is handled natively by ZUIBridgeViewController's
-      // keyboardLayoutGuide constraint — don't let Capacitor also resize.
-      resize: 'none',
-    },
-  },
+  // Keyboard handling is done natively by ZUIBridgeViewController —
+  // no Capacitor Keyboard plugin needed.
 };
 
 export default config;

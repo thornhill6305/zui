@@ -8,28 +8,18 @@ import Capacitor
 class ZUIBridgeViewController: CAPBridgeViewController {
 
     private var loadingObservation: NSKeyValueObservation?
-    private var webViewBottom: NSLayoutConstraint?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         guard let webView = webView else { return }
 
-        // -- Layout: constraint-based, edge-to-edge. --------
-        // Remove Capacitor's own constraints on the webView and replace
-        // with our own, including a bottom constraint we can animate.
+        // -- Layout: frame-based, no Auto Layout conflicts. --------
         for c in view.constraints where c.firstItem === webView || c.secondItem === webView {
             c.isActive = false
         }
-        webView.translatesAutoresizingMaskIntoConstraints = false
-
-        let bottom = webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        webViewBottom = bottom
-        NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: view.topAnchor),
-            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottom,
-        ])
+        webView.translatesAutoresizingMaskIntoConstraints = true
+        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        webView.frame = view.bounds
 
         webView.scrollView.contentInsetAdjustmentBehavior = .never
 
@@ -37,6 +27,9 @@ class ZUIBridgeViewController: CAPBridgeViewController {
         webView.isOpaque = false
         webView.backgroundColor = UIColor(red: 15/255, green: 23/255, blue: 42/255, alpha: 1)
         webView.scrollView.backgroundColor = webView.backgroundColor
+
+        // Hide the default iOS keyboard accessory bar.
+        webView.hack_removeInputAccessoryView()
 
         // -- Keyboard observers ------------------------------------
         NotificationCenter.default.addObserver(
@@ -61,35 +54,37 @@ class ZUIBridgeViewController: CAPBridgeViewController {
     // MARK: - Keyboard
 
     @objc private func keyboardWillShow(_ n: Notification) {
-        guard let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+        guard let webView = webView,
+              let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
         else { return }
 
-        webViewBottom?.constant = -endFrame.height
-
+        let kbHeight = endFrame.height
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
-            self.view.layoutIfNeeded()
+            webView.frame = CGRect(x: 0, y: 0,
+                                   width: self.view.bounds.width,
+                                   height: self.view.bounds.height - kbHeight)
         })
 
-        webView?.evaluateJavaScript(
+        webView.evaluateJavaScript(
             "window.dispatchEvent(new Event('native:keyboard-show'))",
             completionHandler: nil)
         injectSafeArea(keyboardVisible: true)
     }
 
     @objc private func keyboardWillHide(_ n: Notification) {
-        webViewBottom?.constant = 0
+        guard let webView = webView else { return }
 
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
-            self.view.layoutIfNeeded()
+            webView.frame = self.view.bounds
         })
 
-        webView?.evaluateJavaScript(
+        webView.evaluateJavaScript(
             "window.dispatchEvent(new Event('native:keyboard-hide'))",
             completionHandler: nil)
         injectSafeArea(keyboardVisible: false)
@@ -115,5 +110,24 @@ class ZUIBridgeViewController: CAPBridgeViewController {
     deinit {
         loadingObservation?.invalidate()
         NotificationCenter.default.removeObserver(self)
+    }
+}
+
+// MARK: - Hide input accessory view (replaces @capacitor/keyboard plugin)
+
+private final class NoInputAccessoryView: NSObject {
+    @objc var inputAccessoryView: AnyObject? { return nil }
+}
+
+extension WKWebView {
+    func hack_removeInputAccessoryView() {
+        guard let target = scrollView.subviews.first(where: {
+            String(describing: type(of: $0)).hasPrefix("WKContent")
+        }) else { return }
+
+        let noAccessoryClass: AnyClass = NoInputAccessoryView.self
+        let original = class_getInstanceMethod(type(of: target), #selector(getter: UIResponder.inputAccessoryView))!
+        let replacement = class_getInstanceMethod(noAccessoryClass, #selector(getter: NoInputAccessoryView.inputAccessoryView))!
+        method_exchangeImplementations(original, replacement)
     }
 }

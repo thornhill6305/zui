@@ -69,17 +69,9 @@
       // Not running in Capacitor — ignore
     }
 
-    // In Capacitor native, also try the Keyboard plugin (belt + suspenders)
-    // and hide the default iOS accessory bar.
-    if (isNativeApp) {
-      try {
-        const { Keyboard } = await import('@capacitor/keyboard');
-        Keyboard.setAccessoryBarVisible({ isVisible: false });
-      } catch {
-        // Plugin not available — keyboard events still come from native side.
-      }
-    } else {
-      // Browser fallback — use visualViewport for keyboard detection.
+    // Browser fallback — use visualViewport for keyboard detection.
+    // In native mode the ZUIBridgeViewController handles everything.
+    if (!isNativeApp) {
       window.visualViewport?.addEventListener('resize', handleViewportResize);
     }
   });
