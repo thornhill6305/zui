@@ -6,6 +6,7 @@ import {
   getSessions, spawnSession, killSession, showSessionInPane,
   getSessionWorkdir, sessionExists, discoverProjects,
   createWorktree, removeWorktree, saveConfig,
+  isWebServerRunning, startWebServer, stopWebServer,
 } from "@zui/core";
 import { focusRightPane, focusBottomRightPane, closeRightPane, getPaneCount, killBottomRightPane, showLazygitPane, killZuiSession } from "./ui/layout.js";
 import { unregisterAltBindings } from "./ui/keybindings.js";
@@ -43,6 +44,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
   const [selected, setSelected] = useState(0);
   const [statusMessage, setStatusMessage] = useState("");
   const [dialog, setDialog] = useState<Dialog>({ type: "none" });
+  const [webRunning, setWebRunning] = useState(() => isWebServerRunning(initialConfig));
 
   // Track terminal resize
   useEffect(() => {
@@ -68,6 +70,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
         sessionsRef.current = key;
         setSessions(s);
       }
+      setWebRunning(isWebServerRunning(config));
     };
     refresh();
     const interval = setInterval(refresh, config.refreshInterval * 1000);
@@ -131,6 +134,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
       if (input === "x") { cleanupWorktree(); return; }
       if (input === "g" && sessions.length > 0) { showLazygitFromRemote(); return; }
       if (input === "w") { createWorktreeAction(); return; }
+      if (input === "v") { toggleWebServer(); return; }
       if (input === "s") { setDialog({ type: "settings" }); return; }
       if (input === "h") { setDialog({ type: "help" }); return; }
       if (input === "c") {
@@ -183,6 +187,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     if (input === "x") cleanupWorktree();
     if (input === "g" && sessions.length > 0) toggleLazygit();
     if (input === "w") createWorktreeAction();
+    if (input === "v") toggleWebServer();
     if (input === "s") setDialog({ type: "settings" });
     if (input === "h") setDialog({ type: "help" });
     if (key.tab) focusRightPane();
@@ -423,6 +428,25 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     }
   }
 
+  function toggleWebServer() {
+    if (webRunning) {
+      if (stopWebServer(config)) {
+        setWebRunning(false);
+        setStatus("Web server stopped");
+      } else {
+        setStatus("Error: Failed to stop web server");
+      }
+    } else {
+      const [ok, msg] = startWebServer(config);
+      if (ok) {
+        setWebRunning(true);
+        setStatus(`Web :${config.webPort} started`);
+      } else {
+        setStatus(msg);
+      }
+    }
+  }
+
   function handleSettingsSave(updates: Partial<Config>) {
     const newConfig = { ...config, ...updates };
     setConfig(newConfig);
@@ -437,7 +461,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
 
   return (
     <Box flexDirection="column" height={termSize.rows}>
-      <Header />
+      <Header webRunning={webRunning} webPort={config.webPort} />
 
       {sessions.length === 0 ? (
         <EmptyState />
@@ -446,7 +470,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
       )}
 
       <StatusMessage message={statusMessage} />
-      <Footer />
+      <Footer webRunning={webRunning} />
 
       {dialog.type === "confirm" && (
         <ConfirmDialog

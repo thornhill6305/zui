@@ -24,6 +24,8 @@ function getOwnSessionName(socket: string): string | null {
   return output || null;
 }
 
+const INTERNAL_SESSIONS = new Set(["zui-web"]);
+
 export function getSessions(config: Config, options?: { exclude?: string[]; skipOwnSession?: boolean }): Session[] {
   const output = runTmux(
     ["list-sessions", "-F", "#{session_name}|#{session_created}|#{session_activity}"],
@@ -44,6 +46,7 @@ export function getSessions(config: Config, options?: { exclude?: string[]; skip
     const name = parts[0]!;
     if (name === ownSession) continue;
     if (excludeSet.has(name)) continue;
+    if (INTERNAL_SESSIONS.has(name)) continue;
 
     const created = parseInt(parts[1]!, 10);
     const lastActivity = parseInt(parts[2]!, 10);

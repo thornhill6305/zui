@@ -22,6 +22,8 @@ export function defaultConfig(): Config {
     layoutRightWidth: 70,
     layoutLazygitHeight: 40,
     confirmCleanup: true,
+    webPort: 3030,
+    webHost: "127.0.0.1",
   };
 }
 
@@ -74,6 +76,12 @@ function parseConfigFile(path: string): Config {
     }
   }
 
+  const web = data.web as Record<string, unknown> | undefined;
+  if (web && typeof web === "object") {
+    if (typeof web.port === "number") cfg.webPort = web.port;
+    if (typeof web.host === "string") cfg.webHost = web.host;
+  }
+
   if (Array.isArray(data.scan_dirs)) {
     for (const d of data.scan_dirs) {
       if (typeof d === "string") {
@@ -120,6 +128,12 @@ export function saveConfig(cfg: Config, savePath?: string): void {
   layout.right_width = cfg.layoutRightWidth;
   layout.lazygit_height = cfg.layoutLazygitHeight;
   existing.layout = layout;
+
+  const webSection = (typeof existing.web === "object" && existing.web !== null
+    ? existing.web : {}) as Record<string, unknown>;
+  webSection.port = cfg.webPort;
+  webSection.host = cfg.webHost;
+  existing.web = webSection;
 
   writeFileSync(path, stringifyToml(existing) + "\n");
 }

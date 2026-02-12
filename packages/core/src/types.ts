@@ -15,6 +15,8 @@ export interface Config {
   layoutRightWidth: number;
   layoutLazygitHeight: number;
   confirmCleanup: boolean;
+  webPort: number;
+  webHost: string;
 }
 
 export interface Session {
