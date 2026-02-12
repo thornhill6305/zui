@@ -10,7 +10,7 @@
 
   let containerEl: HTMLElement | undefined = $state();
   let manager: XtermManager | null = null;
-  let XtermManagerClass: typeof XtermManager | null = null;
+  let XtermManagerClass: typeof XtermManager | null = $state(null);
 
   // Dynamically import xterm (browser-only, crashes during SSR)
   onMount(async () => {
