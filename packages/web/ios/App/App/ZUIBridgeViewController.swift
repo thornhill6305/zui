@@ -8,6 +8,7 @@ import Capacitor
 class ZUIBridgeViewController: CAPBridgeViewController {
 
     private var loadingObservation: NSKeyValueObservation?
+    private var currentKeyboardHeight: CGFloat = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -18,7 +19,7 @@ class ZUIBridgeViewController: CAPBridgeViewController {
             c.isActive = false
         }
         webView.translatesAutoresizingMaskIntoConstraints = true
-        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        webView.autoresizingMask = []
         webView.frame = view.bounds
 
         webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -30,6 +31,9 @@ class ZUIBridgeViewController: CAPBridgeViewController {
 
         // Hide the default iOS keyboard accessory bar.
         webView.hack_removeInputAccessoryView()
+
+        // Allow programmatic focus to show keyboard (for xterm.js).
+        webView.hack_setKeyboardRequiresUserAction(false)
 
         // -- Keyboard observers ------------------------------------
         NotificationCenter.default.addObserver(
@@ -46,45 +50,66 @@ class ZUIBridgeViewController: CAPBridgeViewController {
         }
     }
 
+    // MARK: - Layout
+
+    // Re-apply our frame after every layout pass so Capacitor's parent
+    // class (CAPBridgeViewController) can never override it.
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        applyWebViewFrame(animated: false)
+    }
+
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         injectSafeArea()
     }
 
+    private func applyWebViewFrame(animated: Bool) {
+        guard let webView = webView else { return }
+        let target = CGRect(
+            x: 0, y: 0,
+            width: view.bounds.width,
+            height: view.bounds.height - currentKeyboardHeight
+        )
+        if animated {
+            webView.frame = target   // inside an existing animation block
+        } else {
+            webView.frame = target
+        }
+    }
+
     // MARK: - Keyboard
 
     @objc private func keyboardWillShow(_ n: Notification) {
-        guard let webView = webView,
-              let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+        guard let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
         else { return }
 
-        let kbHeight = endFrame.height
+        currentKeyboardHeight = endFrame.height
+
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
-            webView.frame = CGRect(x: 0, y: 0,
-                                   width: self.view.bounds.width,
-                                   height: self.view.bounds.height - kbHeight)
+            self.applyWebViewFrame(animated: true)
         })
 
-        webView.evaluateJavaScript(
+        webView?.evaluateJavaScript(
             "window.dispatchEvent(new Event('native:keyboard-show'))",
             completionHandler: nil)
         injectSafeArea(keyboardVisible: true)
     }
 
     @objc private func keyboardWillHide(_ n: Notification) {
-        guard let webView = webView else { return }
+        currentKeyboardHeight = 0
 
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
-            webView.frame = self.view.bounds
+            self.applyWebViewFrame(animated: true)
         })
 
-        webView.evaluateJavaScript(
+        webView?.evaluateJavaScript(
             "window.dispatchEvent(new Event('native:keyboard-hide'))",
             completionHandler: nil)
         injectSafeArea(keyboardVisible: false)
@@ -129,5 +154,23 @@ extension WKWebView {
         let original = class_getInstanceMethod(type(of: target), #selector(getter: UIResponder.inputAccessoryView))!
         let replacement = class_getInstanceMethod(noAccessoryClass, #selector(getter: NoInputAccessoryView.inputAccessoryView))!
         method_exchangeImplementations(original, replacement)
+    }
+
+    /// Allow programmatic .focus() to open the keyboard without a user tap.
+    func hack_setKeyboardRequiresUserAction(_ requires: Bool) {
+        guard let contentView = scrollView.subviews.first(where: {
+            String(describing: type(of: $0)).hasPrefix("WKContent")
+        }) else { return }
+
+        typealias FocusIMP = @convention(c) (AnyObject, Selector, AnyObject, Bool, Bool, AnyObject) -> Void
+        let sel = sel_getUid("_elementDidFocus:userIsInteracting:blurPreviousNode:activityStateChanges:")
+        guard let method = class_getInstanceMethod(type(of: contentView), sel) else { return }
+        let original = method_getImplementation(method)
+        let block: @convention(block) (AnyObject, AnyObject, Bool, Bool, AnyObject) -> Void = {
+            me, info, _, blur, changes in
+            let fn = unsafeBitCast(original, to: FocusIMP.self)
+            fn(me, sel, info, true, blur, changes)
+        }
+        method_setImplementation(method, imp_implementationWithBlock(block))
     }
 }

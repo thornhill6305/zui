@@ -18,6 +18,10 @@
   $effect(() => {
     sessions.set(data.sessions);
     projects.set(data.projects);
+    // Auto-select the first available session.
+    if (data.sessions.length > 0 && !$selectedSession) {
+      selectedSession.set(data.sessions[0].name);
+    }
   });
 
   // Track viewport for responsive layout
