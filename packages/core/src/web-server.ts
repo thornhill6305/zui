@@ -2,6 +2,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Config } from "./types.js";
+import { execFileSync } from "node:child_process";
 import { runCommandOk } from "./shell.js";
 
 const WEB_SESSION = "zui-web";
@@ -35,9 +36,16 @@ export function startWebServer(config: Config): [boolean, string] {
     ...base.slice(1), "new-session", "-d", "-s", WEB_SESSION, cmd,
   ]);
 
-  return ok
-    ? [true, `Web server started on http://${config.webHost}:${config.webPort}`]
-    : [false, "Failed to start web server"];
+  if (!ok) return [false, "Failed to create tmux session"];
+
+  // tmux new-session exits 0 even if the command inside crashes.
+  // Wait briefly then verify the session is still alive.
+  try { execFileSync("sleep", ["1"]); } catch {}
+  if (!isWebServerRunning(config)) {
+    return [false, `Failed to start — port ${config.webPort} may be in use`];
+  }
+
+  return [true, `Web server started on http://${config.webHost}:${config.webPort}`];
 }
 
 export function stopWebServer(config: Config): boolean {
