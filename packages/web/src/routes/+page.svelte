@@ -46,6 +46,19 @@
     // Import xterm.js CSS dynamically (client-only)
     import('@xterm/xterm/css/xterm.css');
 
+    // Native iOS keyboard events — dispatched directly from
+    // ZUIBridgeViewController via evaluateJavaScript.  This is the
+    // most reliable detection because it doesn't depend on the
+    // Capacitor JS bridge being initialised.
+    const onNativeShow = () => { keyboardOpen = true; };
+    const onNativeHide = () => { keyboardOpen = false; };
+    window.addEventListener('native:keyboard-show', onNativeShow);
+    window.addEventListener('native:keyboard-hide', onNativeHide);
+    keyboardListeners.push(
+      () => window.removeEventListener('native:keyboard-show', onNativeShow),
+      () => window.removeEventListener('native:keyboard-hide', onNativeHide),
+    );
+
     // Detect Capacitor native environment.
     try {
       const { Capacitor } = await import('@capacitor/core');
@@ -56,23 +69,14 @@
       // Not running in Capacitor — ignore
     }
 
-    // In Capacitor native, use the Keyboard plugin for keyboard detection.
-    // The visualViewport trick doesn't work with resize:'native' — Capacitor
-    // resizes the webview, making visualViewport.height === innerHeight,
-    // which races with the plugin event and resets keyboardOpen to false.
+    // In Capacitor native, also try the Keyboard plugin (belt + suspenders)
+    // and hide the default iOS accessory bar.
     if (isNativeApp) {
       try {
         const { Keyboard } = await import('@capacitor/keyboard');
         Keyboard.setAccessoryBarVisible({ isVisible: false });
-        const showHandle = await Keyboard.addListener('keyboardWillShow', () => {
-          keyboardOpen = true;
-        });
-        const hideHandle = await Keyboard.addListener('keyboardWillHide', () => {
-          keyboardOpen = false;
-        });
-        keyboardListeners = [() => showHandle.remove(), () => hideHandle.remove()];
-      } catch (e) {
-        console.warn('[ZUI] Capacitor Keyboard plugin failed:', e);
+      } catch {
+        // Plugin not available — keyboard events still come from native side.
       }
     } else {
       // Browser fallback — use visualViewport for keyboard detection.
