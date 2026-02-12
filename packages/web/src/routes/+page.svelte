@@ -36,13 +36,24 @@
     keyboardOpen = window.visualViewport.height < window.innerHeight * 0.85;
   }
 
-  onMount(() => {
+  onMount(async () => {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     window.visualViewport?.addEventListener('resize', handleViewportResize);
 
     // Import xterm.js CSS dynamically (client-only)
     import('@xterm/xterm/css/xterm.css');
+
+    // In Capacitor, hide the native iOS keyboard accessory bar
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isNativePlatform()) {
+        const { Keyboard } = await import('@capacitor/keyboard');
+        Keyboard.setAccessoryBarVisible({ isVisible: false });
+      }
+    } catch {
+      // Not running in Capacitor — ignore
+    }
   });
 
   onDestroy(() => {
