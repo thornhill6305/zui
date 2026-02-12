@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   // Point the native webview at the ZUI server.
   // Change this to your server's LAN/public URL.
   server: {
-    url: 'http://localhost:3030',
+    url: 'http://100.97.25.11:3030',
     cleartext: true,
   },
   plugins: {
