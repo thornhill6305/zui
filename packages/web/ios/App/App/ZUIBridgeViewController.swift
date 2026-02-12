@@ -8,19 +8,18 @@ import Capacitor
 class ZUIBridgeViewController: CAPBridgeViewController {
 
     private var loadingObservation: NSKeyValueObservation?
+    private var currentKeyboardHeight: CGFloat = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
         guard let webView = webView else { return }
 
         // -- Layout: frame-based, no Auto Layout conflicts. --------
-        // Removing constraints and using autoresizingMask avoids any
-        // fight with Capacitor's own constraint setup.
         for c in view.constraints where c.firstItem === webView || c.secondItem === webView {
             c.isActive = false
         }
         webView.translatesAutoresizingMaskIntoConstraints = true
-        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        webView.autoresizingMask = []          // we manage the frame ourselves
         webView.frame = view.bounds
 
         webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -45,9 +44,26 @@ class ZUIBridgeViewController: CAPBridgeViewController {
         }
     }
 
+    // Enforce the correct frame on every layout pass so nothing can
+    // override it behind our back (Capacitor, autoresizing, rotations).
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        applyWebViewFrame()
+    }
+
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         injectSafeArea()
+    }
+
+    // MARK: - Frame management
+
+    private func applyWebViewFrame() {
+        webView?.frame = CGRect(
+            x: 0, y: 0,
+            width: view.bounds.width,
+            height: view.bounds.height - currentKeyboardHeight
+        )
     }
 
     // MARK: - Keyboard
@@ -57,14 +73,12 @@ class ZUIBridgeViewController: CAPBridgeViewController {
               let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
         else { return }
 
-        let kbHeight = endFrame.height
+        currentKeyboardHeight = endFrame.height
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
-            webView.frame = CGRect(x: 0, y: 0,
-                                   width: self.view.bounds.width,
-                                   height: self.view.bounds.height - kbHeight)
+            self.applyWebViewFrame()
         })
 
         webView.evaluateJavaScript(
@@ -76,11 +90,12 @@ class ZUIBridgeViewController: CAPBridgeViewController {
     @objc private func keyboardWillHide(_ n: Notification) {
         guard let webView = webView else { return }
 
+        currentKeyboardHeight = 0
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
-            webView.frame = self.view.bounds
+            self.applyWebViewFrame()
         })
 
         webView.evaluateJavaScript(
