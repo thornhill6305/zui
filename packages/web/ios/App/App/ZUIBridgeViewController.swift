@@ -5,21 +5,43 @@ import Capacitor
 /// Extends the WKWebView edge-to-edge and manually resizes it when the
 /// keyboard opens/closes.  Injects --safe-top/--safe-bottom CSS custom
 /// properties and dispatches keyboard events to JavaScript.
+///
+/// IMPORTANT – Capacitor's CAPBridgeViewController sets `view = webView`
+/// in its `loadView()`, so `self.view` and the WKWebView are the *same*
+/// object.  That means `self.view.bounds` always returns the webView's
+/// current (possibly shrunken) size, NOT the full-screen size.  We must
+/// therefore derive the full-screen bounds from the window, not from
+/// `self.view.bounds`.
 class ZUIBridgeViewController: CAPBridgeViewController {
 
     private var loadingObservation: NSKeyValueObservation?
+
+    /// Returns the full-screen bounds for the webView by consulting the
+    /// window (or falling back to the screen).  This avoids the trap of
+    /// reading `self.view.bounds` when `view === webView` and the frame
+    /// has already been shrunk for the keyboard.
+    private var fullScreenBounds: CGRect {
+        if let window = view.window {
+            return window.bounds
+        }
+        return UIScreen.main.bounds
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         guard let webView = webView else { return }
 
         // -- Layout: frame-based, no Auto Layout conflicts. --------
+        // Since CAPBridgeViewController sets `view = webView`, there are
+        // no parent-child constraints to worry about.  We still disable
+        // any constraints that may have been added by Capacitor internals.
         for c in view.constraints where c.firstItem === webView || c.secondItem === webView {
             c.isActive = false
         }
         webView.translatesAutoresizingMaskIntoConstraints = true
-        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        webView.frame = view.bounds
+        // Do NOT use autoresizingMask — it has no effect when
+        // the webView IS the root view (no superview to track).
+        webView.autoresizingMask = []
 
         webView.scrollView.contentInsetAdjustmentBehavior = .never
 
@@ -31,7 +53,7 @@ class ZUIBridgeViewController: CAPBridgeViewController {
         // Hide the default iOS keyboard accessory bar.
         webView.hack_removeInputAccessoryView()
 
-        // -- JS→Native bridge for keyboard dismiss ----------------
+        // -- JS->Native bridge for keyboard dismiss ----------------
         let handler = KeyboardDismissHandler(viewController: self)
         webView.configuration.userContentController.add(handler, name: "keyboard")
 
@@ -50,6 +72,13 @@ class ZUIBridgeViewController: CAPBridgeViewController {
         }
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // Ensure webView starts at full screen.  By the time
+        // viewDidAppear fires the window is guaranteed to exist.
+        webView?.frame = fullScreenBounds
+    }
+
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         injectSafeArea()
@@ -62,14 +91,15 @@ class ZUIBridgeViewController: CAPBridgeViewController {
               let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
         else { return }
 
+        let screenBounds = fullScreenBounds
         let kbHeight = endFrame.height
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
             webView.frame = CGRect(x: 0, y: 0,
-                                   width: self.view.bounds.width,
-                                   height: self.view.bounds.height - kbHeight)
+                                   width: screenBounds.width,
+                                   height: screenBounds.height - kbHeight)
         })
 
         webView.evaluateJavaScript(
@@ -81,11 +111,12 @@ class ZUIBridgeViewController: CAPBridgeViewController {
     @objc private func keyboardWillHide(_ n: Notification) {
         guard let webView = webView else { return }
 
+        let screenBounds = fullScreenBounds
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
-            webView.frame = self.view.bounds
+            webView.frame = screenBounds
         })
 
         webView.evaluateJavaScript(
@@ -97,14 +128,9 @@ class ZUIBridgeViewController: CAPBridgeViewController {
     /// Called from JS via window.webkit.messageHandlers.keyboard.postMessage('hide')
     func dismissKeyboard() {
         view.endEditing(true)
-        // Explicitly restore the frame in case the notification doesn't.
-        UIView.animate(withDuration: 0.25) {
-            self.webView?.frame = self.view.bounds
-        }
-        webView?.evaluateJavaScript(
-            "window.dispatchEvent(new Event('native:keyboard-hide'))",
-            completionHandler: nil)
-        injectSafeArea(keyboardVisible: false)
+        // endEditing triggers keyboardWillHide which handles the frame
+        // restore.  We still dispatch the JS event and re-inject safe
+        // area in case the notification fires before the animation runs.
     }
 
     // MARK: - CSS injection
@@ -130,7 +156,7 @@ class ZUIBridgeViewController: CAPBridgeViewController {
     }
 }
 
-// MARK: - JS→Native keyboard dismiss bridge
+// MARK: - JS->Native keyboard dismiss bridge
 
 private class KeyboardDismissHandler: NSObject, WKScriptMessageHandler {
     weak var viewController: ZUIBridgeViewController?
