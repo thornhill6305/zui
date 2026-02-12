@@ -8,18 +8,28 @@ import Capacitor
 class ZUIBridgeViewController: CAPBridgeViewController {
 
     private var loadingObservation: NSKeyValueObservation?
+    private var webViewBottom: NSLayoutConstraint?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         guard let webView = webView else { return }
 
-        // -- Layout: frame-based, no Auto Layout conflicts. --------
+        // -- Layout: constraint-based, edge-to-edge. --------
+        // Remove Capacitor's own constraints on the webView and replace
+        // with our own, including a bottom constraint we can animate.
         for c in view.constraints where c.firstItem === webView || c.secondItem === webView {
             c.isActive = false
         }
-        webView.translatesAutoresizingMaskIntoConstraints = true
-        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        webView.frame = view.bounds
+        webView.translatesAutoresizingMaskIntoConstraints = false
+
+        let bottom = webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        webViewBottom = bottom
+        NSLayoutConstraint.activate([
+            webView.topAnchor.constraint(equalTo: view.topAnchor),
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottom,
+        ])
 
         webView.scrollView.contentInsetAdjustmentBehavior = .never
 
@@ -51,54 +61,35 @@ class ZUIBridgeViewController: CAPBridgeViewController {
     // MARK: - Keyboard
 
     @objc private func keyboardWillShow(_ n: Notification) {
-        guard let webView = webView,
-              let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+        guard let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
         else { return }
 
-        let kbHeight = endFrame.height
+        webViewBottom?.constant = -endFrame.height
+
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
-            webView.frame = CGRect(x: 0, y: 0,
-                                   width: self.view.bounds.width,
-                                   height: self.view.bounds.height - kbHeight)
+            self.view.layoutIfNeeded()
         })
 
-        webView.evaluateJavaScript(
+        webView?.evaluateJavaScript(
             "window.dispatchEvent(new Event('native:keyboard-show'))",
             completionHandler: nil)
         injectSafeArea(keyboardVisible: true)
     }
 
     @objc private func keyboardWillHide(_ n: Notification) {
-        guard let webView = webView else { return }
-
-        let fullFrame = CGRect(x: 0, y: 0,
-                               width: view.bounds.width,
-                               height: view.bounds.height)
-
-        // Set frame immediately (no animation) to guarantee the restore
-        // even if a layout pass interferes with the animated version.
-        webView.frame = fullFrame
+        webViewBottom?.constant = 0
 
         let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
-            webView.frame = fullFrame
+            self.view.layoutIfNeeded()
         })
 
-        // Safety net: re-apply after animation in case anything overrides.
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.1) {
-            [weak self] in
-            guard let self = self, let wv = self.webView else { return }
-            wv.frame = CGRect(x: 0, y: 0,
-                              width: self.view.bounds.width,
-                              height: self.view.bounds.height)
-        }
-
-        webView.evaluateJavaScript(
+        webView?.evaluateJavaScript(
             "window.dispatchEvent(new Event('native:keyboard-hide'))",
             completionHandler: nil)
         injectSafeArea(keyboardVisible: false)
