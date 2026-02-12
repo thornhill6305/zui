@@ -21,7 +21,11 @@
   }
 
   function dismissKeyboard() {
-    (document.activeElement as HTMLElement)?.blur();
+    try {
+      (window as any).webkit?.messageHandlers?.keyboard?.postMessage('hide');
+    } catch {
+      (document.activeElement as HTMLElement)?.blur();
+    }
   }
 </script>
 
