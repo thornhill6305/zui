@@ -20,8 +20,13 @@
     ev.preventDefault();
   }
 
-  function dismissKeyboard() {
-    (document.activeElement as HTMLElement)?.blur();
+  async function dismissKeyboard() {
+    try {
+      const { Keyboard } = await import('@capacitor/keyboard');
+      await Keyboard.hide();
+    } catch {
+      (document.activeElement as HTMLElement)?.blur();
+    }
   }
 </script>
 
