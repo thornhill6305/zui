@@ -7,8 +7,8 @@ const config: CapacitorConfig = {
   // Point the native webview at the ZUI server.
   // Change this to your server's LAN/public URL.
   server: {
-    url: 'https://YOUR_TAILSCALE_HOST:3030',
-    cleartext: false,
+    url: 'http://100.97.25.11:3030',
+    cleartext: true,
   },
   // Keyboard handling is done natively by ZUIBridgeViewController —
   // no Capacitor Keyboard plugin needed.
