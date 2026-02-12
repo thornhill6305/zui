@@ -37,21 +37,31 @@
   }
 
   let keyboardListeners: Array<() => void> = [];
+  let isNativeApp = false;
 
   onMount(async () => {
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    window.visualViewport?.addEventListener('resize', handleViewportResize);
 
     // Import xterm.js CSS dynamically (client-only)
     import('@xterm/xterm/css/xterm.css');
 
-    // In Capacitor, hide the native iOS keyboard accessory bar and use
-    // plugin events for keyboard detection (visualViewport trick doesn't
-    // work when Capacitor resizes the webview natively).
+    // Detect Capacitor native environment.
     try {
       const { Capacitor } = await import('@capacitor/core');
       if (Capacitor.isNativePlatform()) {
+        isNativeApp = true;
+      }
+    } catch {
+      // Not running in Capacitor — ignore
+    }
+
+    // In Capacitor native, use the Keyboard plugin for keyboard detection.
+    // The visualViewport trick doesn't work with resize:'native' — Capacitor
+    // resizes the webview, making visualViewport.height === innerHeight,
+    // which races with the plugin event and resets keyboardOpen to false.
+    if (isNativeApp) {
+      try {
         const { Keyboard } = await import('@capacitor/keyboard');
         Keyboard.setAccessoryBarVisible({ isVisible: false });
         const showHandle = await Keyboard.addListener('keyboardWillShow', () => {
@@ -61,9 +71,12 @@
           keyboardOpen = false;
         });
         keyboardListeners = [() => showHandle.remove(), () => hideHandle.remove()];
+      } catch (e) {
+        console.warn('[ZUI] Capacitor Keyboard plugin failed:', e);
       }
-    } catch {
-      // Not running in Capacitor — ignore
+    } else {
+      // Browser fallback — use visualViewport for keyboard detection.
+      window.visualViewport?.addEventListener('resize', handleViewportResize);
     }
   });
 
@@ -138,10 +151,10 @@
     inset: 0;
     display: flex;
     overflow: hidden;
-    padding-top: env(safe-area-inset-top);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-top: var(--safe-top);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    padding-bottom: var(--safe-bottom);
     background: var(--bg-primary);
   }
 

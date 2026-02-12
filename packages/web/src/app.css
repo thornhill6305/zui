@@ -1,4 +1,11 @@
 :root {
+  /* Safe area insets — overridden by native iOS bridge when running in
+     Capacitor.  The env() values are the CSS fallback for browsers. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;

@@ -92,6 +92,9 @@
     left: 0;
     bottom: 0;
     width: min(300px, 85vw);
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left);
     background: var(--bg-primary);
     border-right: 1px solid var(--border);
     animation: slideIn 0.2s ease;
