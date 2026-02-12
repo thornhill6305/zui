@@ -7,15 +7,23 @@ export class WebSocketClient {
   private session: string;
   private onData: TerminalDataCallback;
   private onDisconnect: (() => void) | null;
+  private onConnect: (() => void) | null;
   private reconnectDelay = 1000;
   private maxReconnectDelay = 30000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionalClose = false;
+  private pendingResize: { cols: number; rows: number } | null = null;
 
-  constructor(session: string, onData: TerminalDataCallback, onDisconnect?: () => void) {
+  constructor(
+    session: string,
+    onData: TerminalDataCallback,
+    onDisconnect?: () => void,
+    onConnect?: () => void,
+  ) {
     this.session = session;
     this.onData = onData;
     this.onDisconnect = onDisconnect ?? null;
+    this.onConnect = onConnect ?? null;
   }
 
   connect(): void {
@@ -31,6 +39,12 @@ export class WebSocketClient {
     this.ws.onopen = () => {
       connectionState.set('connected');
       this.reconnectDelay = 1000;
+      // Flush any resize that was queued before the connection opened
+      if (this.pendingResize) {
+        this.sendResize(this.pendingResize.cols, this.pendingResize.rows);
+        this.pendingResize = null;
+      }
+      this.onConnect?.();
     };
 
     this.ws.onmessage = (event) => {
@@ -53,7 +67,6 @@ export class WebSocketClient {
     };
   }
 
-  // Issue #6: Check backpressure before sending
   send(data: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       if (this.ws.bufferedAmount > 1024 * 1024) {
@@ -68,6 +81,9 @@ export class WebSocketClient {
     if (this.ws?.readyState === WebSocket.OPEN) {
       if (this.ws.bufferedAmount > 1024 * 1024) return;
       this.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+    } else {
+      // Queue for when the connection opens
+      this.pendingResize = { cols, rows };
     }
   }
 
@@ -82,9 +98,8 @@ export class WebSocketClient {
     connectionState.set('disconnected');
   }
 
-  // Issue #9: Add jitter to prevent thundering herd
   private scheduleReconnect(): void {
-    const jitter = 0.75 + Math.random() * 0.5; // ±25%
+    const jitter = 0.75 + Math.random() * 0.5;
     const delay = Math.min(this.reconnectDelay * jitter, this.maxReconnectDelay);
 
     this.reconnectTimer = setTimeout(() => {

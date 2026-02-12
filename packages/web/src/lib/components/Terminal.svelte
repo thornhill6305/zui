@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { XtermManager } from '$lib/terminal/xterm-manager';
+  import type { XtermManager } from '$lib/terminal/xterm-manager';
 
   interface Props {
     session: string | null;
@@ -10,13 +10,20 @@
 
   let containerEl: HTMLElement | undefined = $state();
   let manager: XtermManager | null = null;
+  let XtermManagerClass: typeof XtermManager | null = $state(null);
+
+  // Dynamically import xterm (browser-only, crashes during SSR)
+  onMount(async () => {
+    const mod = await import('$lib/terminal/xterm-manager');
+    XtermManagerClass = mod.XtermManager;
+  });
 
   // Track the current session and reconnect when it changes
   $effect(() => {
-    if (!containerEl) return;
+    if (!containerEl || !XtermManagerClass) return;
 
     if (session) {
-      manager = new XtermManager();
+      manager = new XtermManagerClass();
       manager.open(containerEl, session);
       manager.focus();
     }
@@ -46,6 +53,7 @@
   .terminal-wrapper {
     flex: 1;
     display: flex;
+    min-height: 0;
     overflow: hidden;
     background: var(--bg-primary);
   }
@@ -53,10 +61,16 @@
   .terminal-container {
     flex: 1;
     padding: 4px;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .terminal-container :global(.xterm) {
     height: 100%;
+  }
+
+  .terminal-container :global(.xterm-screen) {
+    max-height: 100%;
   }
 
   .terminal-container :global(.xterm-viewport) {

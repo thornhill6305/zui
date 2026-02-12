@@ -7,7 +7,10 @@ import process from "node:process";
 import React from "react";
 import { render } from "ink";
 import { App } from "./app.js";
-import { loadConfig, getSessions, parseIndex, formatSessionLine } from "@zui/core";
+import {
+  loadConfig, getSessions, parseIndex, formatSessionLine,
+  startWebServer, stopWebServer, isWebServerRunning, getWebServerUrl,
+} from "@zui/core";
 import type { Config } from "@zui/core";
 import { registerAltBindings, unregisterAltBindings } from "./ui/keybindings.js";
 
@@ -96,7 +99,31 @@ function main(): void {
   }
 
   if (sub === "serve") {
-    handleServe();
+    const serveSub = process.argv[3];
+    if (serveSub === "start") {
+      const config = loadConfig();
+      const [ok, msg] = startWebServer(config);
+      console.log(msg);
+      process.exit(ok ? 0 : 1);
+    } else if (serveSub === "stop") {
+      const config = loadConfig();
+      if (stopWebServer(config)) {
+        console.log("Web server stopped");
+      } else {
+        console.log("Web server is not running");
+      }
+      process.exit(0);
+    } else if (serveSub === "status") {
+      const config = loadConfig();
+      if (isWebServerRunning(config)) {
+        console.log(`Web server running at ${getWebServerUrl(config)}`);
+      } else {
+        console.log("Web server is not running");
+      }
+      process.exit(0);
+    } else {
+      handleServe();
+    }
     return;
   }
 

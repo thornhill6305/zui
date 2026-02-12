@@ -4,9 +4,12 @@
   import Terminal from '$lib/components/Terminal.svelte';
   import StatusBar from '$lib/components/StatusBar.svelte';
   import ProjectPicker from '$lib/components/ProjectPicker.svelte';
+  import WorktreePicker from '$lib/components/WorktreePicker.svelte';
   import MobileDrawer from '$lib/components/MobileDrawer.svelte';
+  import KeyboardToolbar from '$lib/components/KeyboardToolbar.svelte';
   import { sessions, projects } from '$lib/stores/sessions';
   import { selectedSession, isMobile, drawerOpen } from '$lib/stores/ui';
+  import { activeSession } from '$lib/stores/terminal';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -15,6 +18,10 @@
   $effect(() => {
     sessions.set(data.sessions);
     projects.set(data.projects);
+    // Auto-select the first available session.
+    if (data.sessions.length > 0 && !$selectedSession) {
+      selectedSession.set(data.sessions[0].name);
+    }
   });
 
   // Track viewport for responsive layout
@@ -22,28 +29,62 @@
     isMobile.set(window.innerWidth < 768);
   }
 
-  // Virtual keyboard detection — shrink terminal when keyboard is shown
-  let viewportHeight = $state('100vh');
+  // Shrink app when virtual keyboard opens (mobile)
+  let appEl: HTMLElement | undefined = $state();
+  let keyboardOpen = $state(false);
 
   function handleViewportResize() {
-    if (window.visualViewport) {
-      viewportHeight = `${window.visualViewport.height}px`;
-    }
+    if (!appEl || !window.visualViewport) return;
+    appEl.style.height = `${window.visualViewport.height}px`;
+    appEl.style.bottom = 'auto';
+    keyboardOpen = window.visualViewport.height < window.innerHeight * 0.85;
   }
 
-  onMount(() => {
+  let keyboardListeners: Array<() => void> = [];
+  let isNativeApp = false;
+
+  onMount(async () => {
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    window.visualViewport?.addEventListener('resize', handleViewportResize);
 
     // Import xterm.js CSS dynamically (client-only)
     import('@xterm/xterm/css/xterm.css');
+
+    // Native iOS keyboard events — dispatched directly from
+    // ZUIBridgeViewController via evaluateJavaScript.  This is the
+    // most reliable detection because it doesn't depend on the
+    // Capacitor JS bridge being initialised.
+    const onNativeShow = () => { keyboardOpen = true; };
+    const onNativeHide = () => { keyboardOpen = false; };
+    window.addEventListener('native:keyboard-show', onNativeShow);
+    window.addEventListener('native:keyboard-hide', onNativeHide);
+    keyboardListeners.push(
+      () => window.removeEventListener('native:keyboard-show', onNativeShow),
+      () => window.removeEventListener('native:keyboard-hide', onNativeHide),
+    );
+
+    // Detect Capacitor native environment.
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isNativePlatform()) {
+        isNativeApp = true;
+      }
+    } catch {
+      // Not running in Capacitor — ignore
+    }
+
+    // Browser fallback — use visualViewport for keyboard detection.
+    // In native mode the ZUIBridgeViewController handles everything.
+    if (!isNativeApp) {
+      window.visualViewport?.addEventListener('resize', handleViewportResize);
+    }
   });
 
   onDestroy(() => {
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', checkMobile);
       window.visualViewport?.removeEventListener('resize', handleViewportResize);
+      keyboardListeners.forEach((fn) => fn());
     }
   });
 
@@ -64,7 +105,7 @@
   <title>{$selectedSession ? `${$selectedSession} — ZUI` : 'ZUI'}</title>
 </svelte:head>
 
-<div class="app" style:height={viewportHeight}>
+<div class="app" bind:this={appEl}>
   <!-- Desktop sidebar -->
   {#if !$isMobile}
     <aside class="desktop-sidebar">
@@ -90,6 +131,9 @@
     {/if}
 
     <Terminal session={$selectedSession} />
+    {#if keyboardOpen && $isMobile && $activeSession}
+      <KeyboardToolbar />
+    {/if}
     <StatusBar />
   </main>
 
@@ -98,13 +142,20 @@
 
   <!-- Project picker dialog -->
   <ProjectPicker onCreated={handleCreated} />
+  <WorktreePicker onCreated={handleCreated} />
 </div>
 
 <style>
   .app {
+    position: fixed;
+    inset: 0;
     display: flex;
-    height: 100vh;
     overflow: hidden;
+    padding-top: var(--safe-top);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    padding-bottom: var(--safe-bottom);
+    background: var(--bg-primary);
   }
 
   .desktop-sidebar {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import SessionCard from './SessionCard.svelte';
-  import { sessions, fetchSessions, deleteSession, startAutoRefresh, stopAutoRefresh } from '$lib/stores/sessions';
-  import { selectedSession, projectPickerOpen, isMobile, drawerOpen } from '$lib/stores/ui';
+  import { sessions, fetchSessions, fetchProjects, deleteSession, removeWorktree, startAutoRefresh, stopAutoRefresh, projects } from '$lib/stores/sessions';
+  import { selectedSession, projectPickerOpen, worktreePickerOpen, isMobile, drawerOpen } from '$lib/stores/ui';
   import { onMount, onDestroy } from 'svelte';
 
   interface Props {
@@ -10,11 +10,14 @@
 
   let { onSessionSelect }: Props = $props();
 
+  let worktrees = $derived($projects.filter((p) => p.isWorktree));
+
   // Issue #13: Adapt refresh interval based on connection type
   onMount(() => {
     const conn = (navigator as any).connection;
     const interval = conn?.effectiveType === '4g' ? 2000 : 5000;
     startAutoRefresh(interval);
+    fetchProjects();
   });
 
   onDestroy(() => {
@@ -38,12 +41,24 @@
   function handleNew() {
     projectPickerOpen.set(true);
   }
+
+  function handleNewWorktree() {
+    worktreePickerOpen.set(true);
+  }
+
+  async function handleDeleteWorktree(wt: typeof worktrees[0]) {
+    if (!confirm(`Remove worktree "${wt.name}" and delete branch "${wt.branch}"?`)) return;
+    await removeWorktree(wt.parentRepo, wt.path, wt.branch);
+  }
 </script>
 
 <div class="sidebar">
   <div class="sidebar-header">
     <h1 class="logo">ZUI</h1>
-    <button class="new-btn" onclick={handleNew} aria-label="New session">+ New</button>
+    <div class="header-actions">
+      <button class="new-btn" onclick={handleNew} aria-label="New session">+ New</button>
+      <button class="new-btn wt-btn" onclick={handleNewWorktree} aria-label="New worktree">+ WT</button>
+    </div>
   </div>
 
   <div class="session-list">
@@ -61,6 +76,21 @@
       </div>
     {/each}
   </div>
+
+  {#if worktrees.length > 0}
+    <div class="worktree-section">
+      <div class="section-label">Worktrees</div>
+      {#each worktrees as wt (wt.path)}
+        <div class="worktree-item">
+          <div class="wt-info">
+            <span class="wt-name">{wt.name}</span>
+            <span class="wt-branch">{wt.branch}</span>
+          </div>
+          <button class="wt-delete" onclick={() => handleDeleteWorktree(wt)} aria-label="Remove worktree">✕</button>
+        </div>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -136,5 +166,86 @@
   .empty-new-btn:hover {
     border-color: var(--accent);
     background: rgba(56, 189, 248, 0.08);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .wt-btn {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .worktree-section {
+    border-top: 1px solid var(--border);
+    padding: 8px;
+    flex-shrink: 0;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 8px 8px;
+  }
+
+  .worktree-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 6px;
+    gap: 8px;
+  }
+
+  .worktree-item:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .wt-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .wt-name {
+    font-size: 12px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wt-branch {
+    font-size: 11px;
+    color: var(--accent);
+    font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wt-delete {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 4px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    min-width: 28px;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .wt-delete:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
   }
 </style>

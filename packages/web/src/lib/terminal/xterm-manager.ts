@@ -2,7 +2,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebSocketClient } from './websocket-client';
-import { activeSession, connectionState } from '$lib/stores/terminal';
+import { activeSession, connectionState, xtermManager } from '$lib/stores/terminal';
 
 export class XtermManager {
   private terminal: Terminal | null = null;
@@ -12,6 +12,7 @@ export class XtermManager {
   private container: HTMLElement | null = null;
   // Issue #5: Track disposed state to prevent race conditions
   private disposed = false;
+  private touchCleanup: (() => void) | null = null;
 
   open(container: HTMLElement, session: string): void {
     this.dispose();
@@ -52,7 +53,6 @@ export class XtermManager {
     this.terminal.loadAddon(new WebLinksAddon());
 
     this.terminal.open(container);
-    this.fitAddon.fit();
 
     // Connect WebSocket — guard callbacks with disposed check (Issue #5)
     this.wsClient = new WebSocketClient(
@@ -68,6 +68,7 @@ export class XtermManager {
     );
     this.wsClient.connect();
     activeSession.set(session);
+    xtermManager.set(this);
 
     // Terminal input → WebSocket
     this.terminal.onData((data) => {
@@ -79,25 +80,33 @@ export class XtermManager {
       this.wsClient?.send(data);
     });
 
-    // Send initial size
-    this.wsClient.sendResize(this.terminal.cols, this.terminal.rows);
-
-    // Resize handling
+    // Resize handling — always send size after fit so tmux PTY matches
     this.terminal.onResize(({ cols, rows }) => {
       this.wsClient?.sendResize(cols, rows);
     });
 
+    // Touch-to-scroll for tmux: xterm.js converts wheel→up/down keys (for tmux
+    // scrollback) but does NOT do the same for touch. Synthesize wheel events
+    // from touch gestures so mobile scrolling works in tmux sessions.
+    this.touchCleanup = this.bindTouchScroll(container);
+
     this.resizeObserver = new ResizeObserver(() => {
-      this.fit();
+      this.fitAndSync();
     });
     this.resizeObserver.observe(container);
+
+    // Defer initial fit until layout is computed
+    requestAnimationFrame(() => {
+      this.fitAndSync();
+    });
   }
 
-  // Issue #14: Log resize errors when container is visible
-  fit(): void {
-    if (this.fitAddon && this.container) {
+  private fitAndSync(): void {
+    if (this.fitAddon && this.container && this.terminal) {
       try {
         this.fitAddon.fit();
+        // Always send current size to sync the PTY, even if cols/rows didn't change
+        this.wsClient?.sendResize(this.terminal.cols, this.terminal.rows);
       } catch (err) {
         if (this.container.offsetWidth > 0 && this.container.offsetHeight > 0) {
           console.warn('Terminal fit failed:', err);
@@ -106,12 +115,53 @@ export class XtermManager {
     }
   }
 
+  private bindTouchScroll(container: HTMLElement): () => void {
+    let lastTouchY = 0;
+
+    const onTouchStart = (ev: TouchEvent): void => {
+      lastTouchY = ev.touches[0].clientY;
+    };
+
+    const onTouchMove = (ev: TouchEvent): void => {
+      const currentY = ev.touches[0].clientY;
+      const deltaY = lastTouchY - currentY;
+      lastTouchY = currentY;
+
+      if (Math.abs(deltaY) < 2) return;
+
+      // Dispatch a synthetic wheel event that xterm.js will convert to
+      // up/down keys for tmux scroll (when buffer has no scrollback)
+      const wheelEvent = new WheelEvent('wheel', {
+        deltaY,
+        deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+        bubbles: true,
+        cancelable: true,
+      });
+      container.querySelector('.xterm')?.dispatchEvent(wheelEvent);
+      ev.preventDefault();
+    };
+
+    container.addEventListener('touchstart', onTouchStart, { passive: true });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+    };
+  }
+
+  sendData(data: string): void {
+    this.wsClient?.send(data);
+  }
+
   focus(): void {
     this.terminal?.focus();
   }
 
   dispose(): void {
     this.disposed = true;
+    this.touchCleanup?.();
+    this.touchCleanup = null;
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     this.wsClient?.disconnect();
@@ -120,6 +170,7 @@ export class XtermManager {
     this.terminal = null;
     this.fitAddon = null;
     this.container = null;
+    xtermManager.set(null);
     activeSession.set(null);
     connectionState.set('disconnected');
   }
