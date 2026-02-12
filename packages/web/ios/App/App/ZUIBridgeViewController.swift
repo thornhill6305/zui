@@ -54,12 +54,12 @@ class ZUIBridgeViewController: CAPBridgeViewController {
 
     @objc private func keyboardWillShow(_ n: Notification) {
         guard let webView = webView,
-              let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
-              let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
-              let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt
+              let endFrame = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
         else { return }
 
         let kbHeight = endFrame.height
+        let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+        let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
             webView.frame = CGRect(x: 0, y: 0,
@@ -74,11 +74,10 @@ class ZUIBridgeViewController: CAPBridgeViewController {
     }
 
     @objc private func keyboardWillHide(_ n: Notification) {
-        guard let webView = webView,
-              let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
-              let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt
-        else { return }
+        guard let webView = webView else { return }
 
+        let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+        let curveRaw = n.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 7
         let opts = UIView.AnimationOptions(rawValue: curveRaw << 16)
         UIView.animate(withDuration: duration, delay: 0, options: opts, animations: {
             webView.frame = self.view.bounds
