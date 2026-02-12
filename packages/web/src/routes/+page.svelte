@@ -36,6 +36,8 @@
     keyboardOpen = window.visualViewport.height < window.innerHeight * 0.85;
   }
 
+  let keyboardListeners: Array<() => void> = [];
+
   onMount(async () => {
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -44,12 +46,21 @@
     // Import xterm.js CSS dynamically (client-only)
     import('@xterm/xterm/css/xterm.css');
 
-    // In Capacitor, hide the native iOS keyboard accessory bar
+    // In Capacitor, hide the native iOS keyboard accessory bar and use
+    // plugin events for keyboard detection (visualViewport trick doesn't
+    // work when Capacitor resizes the webview natively).
     try {
       const { Capacitor } = await import('@capacitor/core');
       if (Capacitor.isNativePlatform()) {
         const { Keyboard } = await import('@capacitor/keyboard');
         Keyboard.setAccessoryBarVisible({ isVisible: false });
+        const showHandle = await Keyboard.addListener('keyboardWillShow', () => {
+          keyboardOpen = true;
+        });
+        const hideHandle = await Keyboard.addListener('keyboardWillHide', () => {
+          keyboardOpen = false;
+        });
+        keyboardListeners = [() => showHandle.remove(), () => hideHandle.remove()];
       }
     } catch {
       // Not running in Capacitor — ignore
@@ -60,6 +71,7 @@
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', checkMobile);
       window.visualViewport?.removeEventListener('resize', handleViewportResize);
+      keyboardListeners.forEach((fn) => fn());
     }
   });
 
@@ -126,6 +138,11 @@
     inset: 0;
     display: flex;
     overflow: hidden;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--bg-primary);
   }
 
   .desktop-sidebar {
