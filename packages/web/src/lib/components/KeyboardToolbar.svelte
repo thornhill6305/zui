@@ -19,6 +19,10 @@
   function preventFocusSteal(ev: Event) {
     ev.preventDefault();
   }
+
+  function dismissKeyboard() {
+    (document.activeElement as HTMLElement)?.blur();
+  }
 </script>
 
 <div class="keyboard-toolbar" role="toolbar" aria-label="Terminal quick actions">
@@ -32,6 +36,18 @@
       {btn.label}
     </button>
   {/each}
+  <button
+    class="toolbar-btn dismiss-btn"
+    ontouchstart={preventFocusSteal}
+    onmousedown={preventFocusSteal}
+    onclick={dismissKeyboard}
+    aria-label="Dismiss keyboard"
+  >
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+      <rect x="1" y="1" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none" />
+      <path d="M4.5 12.5 8 15l3.5-2.5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </button>
 </div>
 
 <style>
