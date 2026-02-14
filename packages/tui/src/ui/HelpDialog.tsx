@@ -23,6 +23,9 @@ const sections = [
     ["g", "Toggle lazygit pane"],
     ["w", "Create new worktree"],
   ] as [string, string][] },
+  { title: "Layout", items: [
+    ["f", "Toggle fullscreen (zoom session pane)"],
+  ] as [string, string][] },
   { title: "CLI Commands", items: [
     ["zui <N>", "Attach to Nth session"],
     ["zui ls", "List sessions with indices"],
@@ -42,6 +45,7 @@ const sections = [
     ["Alt+k", "Kill selected session"],
     ["Alt+g", "Show + focus lazygit"],
     ["Alt+w", "Create worktree"],
+    ["Alt+f", "Toggle fullscreen"],
     ["Alt+c", "Close right pane"],
     ["Alt+q", "Quit ZUI"],
   ] as [string, string][] },

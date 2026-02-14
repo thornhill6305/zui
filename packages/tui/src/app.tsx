@@ -6,9 +6,9 @@ import {
   getSessions, spawnSession, killSession, showSessionInPane,
   getSessionWorkdir, sessionExists, discoverProjects,
   createWorktree, removeWorktree, saveConfig,
-  isWebServerRunning, startWebServer, stopWebServer,
+  isWebServerRunning, startWebServer, stopWebServer, getTailscaleUrl,
 } from "@zui/core";
-import { focusRightPane, focusBottomRightPane, closeRightPane, getPaneCount, killBottomRightPane, showLazygitPane, killZuiSession } from "./ui/layout.js";
+import { focusRightPane, focusBottomRightPane, closeRightPane, getPaneCount, killBottomRightPane, showLazygitPane, killZuiSession, toggleZoom } from "./ui/layout.js";
 import { unregisterAltBindings } from "./ui/keybindings.js";
 import { Header } from "./ui/Header.js";
 import { Footer } from "./ui/Footer.js";
@@ -45,6 +45,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
   const [statusMessage, setStatusMessage] = useState("");
   const [dialog, setDialog] = useState<Dialog>({ type: "none" });
   const [webRunning, setWebRunning] = useState(() => isWebServerRunning(initialConfig));
+  const [tailscaleUrl, setTailscaleUrl] = useState("");
 
   // Track terminal resize
   useEffect(() => {
@@ -70,7 +71,13 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
         sessionsRef.current = key;
         setSessions(s);
       }
-      setWebRunning(isWebServerRunning(config));
+      const webUp = isWebServerRunning(config);
+      setWebRunning(webUp);
+      if (webUp && !tailscaleUrl) {
+        setTailscaleUrl(getTailscaleUrl(config));
+      } else if (!webUp) {
+        setTailscaleUrl("");
+      }
     };
     refresh();
     const interval = setInterval(refresh, config.refreshInterval * 1000);
@@ -134,6 +141,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
       if (input === "x") { cleanupWorktree(); return; }
       if (input === "g" && sessions.length > 0) { showLazygitFromRemote(); return; }
       if (input === "w") { createWorktreeAction(); return; }
+      if (input === "f") { toggleFullscreen(); return; }
       if (input === "v") { toggleWebServer(); return; }
       if (input === "s") { setDialog({ type: "settings" }); return; }
       if (input === "h") { setDialog({ type: "help" }); return; }
@@ -187,6 +195,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     if (input === "x") cleanupWorktree();
     if (input === "g" && sessions.length > 0) toggleLazygit();
     if (input === "w") createWorktreeAction();
+    if (input === "f") toggleFullscreen();
     if (input === "v") toggleWebServer();
     if (input === "s") setDialog({ type: "settings" });
     if (input === "h") setDialog({ type: "help" });
@@ -447,6 +456,14 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     }
   }
 
+  function toggleFullscreen() {
+    if (toggleZoom()) {
+      setStatus("Fullscreen toggled");
+    } else {
+      setStatus("Open a session first");
+    }
+  }
+
   function handleSettingsSave(updates: Partial<Config>) {
     const newConfig = { ...config, ...updates };
     setConfig(newConfig);
@@ -461,7 +478,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
 
   return (
     <Box flexDirection="column" height={termSize.rows}>
-      <Header webRunning={webRunning} webPort={config.webPort} />
+      <Header webRunning={webRunning} webPort={config.webPort} tailscaleUrl={tailscaleUrl} />
 
       {sessions.length === 0 ? (
         <EmptyState />
