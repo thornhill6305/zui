@@ -1,4 +1,8 @@
 // src/types.ts
+import type { AgentConfig, SessionStatus } from "./agents/types.js";
+
+export type { AgentConfig, SessionStatus };
+
 export interface ProjectConfig {
   path: string;
   worktreePattern: string;
@@ -8,7 +12,11 @@ export interface Config {
   socket: string;
   projects: ProjectConfig[];
   scanDirs: string[];
+  defaultAgent: string;
+  agents: Record<string, AgentConfig>;
+  /** @deprecated Use agents["claude"].defaultArgs instead */
   defaultArgs: string[];
+  /** @deprecated Use agents["claude"].yoloArgs instead */
   yoloArgs: string[];
   hookPostWorktreeCreate: string;
   refreshInterval: number;
@@ -23,8 +31,9 @@ export interface Session {
   name: string;
   running: string;
   idle: string;
-  status: "[WORK]" | "[WAIT]" | "[ERR]" | "[IDLE]";
+  status: SessionStatus;
   preview: string;
+  agent: string;
 }
 
 export interface Project {

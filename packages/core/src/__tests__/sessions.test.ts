@@ -10,7 +10,7 @@ describe("formatDuration", () => {
   it("formats exactly one hour", () => { expect(formatDuration(3600)).toBe("1h 0m"); });
 });
 
-describe("detectStatus", () => {
+describe("detectStatus (backward-compat shim)", () => {
   it("detects waiting y/n", () => { expect(detectStatus("Allow tool use? (y/n)")).toBe("[WAIT]"); });
   it("detects waiting approve", () => { expect(detectStatus("Do you approve this?")).toBe("[WAIT]"); });
   it("detects error", () => { expect(detectStatus("Error: file not found")).toBe("[ERR]"); });

@@ -13,10 +13,14 @@ export {
 } from "./sessions.js";
 export {
   startWebServer, stopWebServer, isWebServerRunning, getWebServerUrl,
-  WEB_SERVER_SESSION,
+  getTailscaleUrl, WEB_SERVER_SESSION,
 } from "./web-server.js";
 export { deriveWorktreePath, createWorktree, removeWorktree } from "./worktrees.js";
 export { runCommand, runCommandOk } from "./shell.js";
 export { parseIndex, formatSessionLine } from "./cli.js";
 export { projectDisplayName } from "./types.js";
-export type { Config, ProjectConfig, Session, Project } from "./types.js";
+export type { Config, ProjectConfig, Session, Project, AgentConfig, SessionStatus } from "./types.js";
+
+// Agent provider system
+export { getProvider, allProviders } from "./agents/index.js";
+export type { AgentProvider } from "./agents/index.js";

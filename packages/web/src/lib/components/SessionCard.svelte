@@ -17,6 +17,16 @@
     '[IDLE]': 'var(--text-muted)',
   };
 
+  const agentColors: Record<string, string> = {
+    claude: '#8b5cf6',
+    codex: '#22c55e',
+  };
+
+  function agentLabel(id: string): string {
+    if (id === 'codex') return 'Codex';
+    return 'Claude';
+  }
+
   function handleDelete(e: MouseEvent) {
     e.stopPropagation();
     onDelete(session.name);
@@ -48,6 +58,7 @@
     </button>
   </div>
   <div class="card-meta">
+    <span class="agent-badge" style:color={agentColors[session.agent] ?? '#8b5cf6'}>{agentLabel(session.agent)}</span>
     <span class="badge">{session.status}</span>
     <span class="time">{session.running}</span>
     <span class="idle">idle {session.idle}</span>
@@ -132,6 +143,15 @@
     font-size: 11px;
     color: var(--text-muted);
     margin-bottom: 4px;
+  }
+
+  .agent-badge {
+    font-family: monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--bg-tertiary);
   }
 
   .badge {
