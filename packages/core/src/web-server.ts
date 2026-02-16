@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Config } from "./types.js";
 import { execFileSync } from "node:child_process";
-import { runCommandOk } from "./shell.js";
+import { runCommand, runCommandOk } from "./shell.js";
 
 const WEB_SESSION = "zui-web";
 
@@ -55,6 +55,21 @@ export function stopWebServer(config: Config): boolean {
 
 export function getWebServerUrl(config: Config): string {
   return `http://${config.webHost}:${config.webPort}`;
+}
+
+export function getTailscaleUrl(config: Config): string {
+  try {
+    const json = runCommand("tailscale", ["status", "--self", "--json"], { timeout: 2000 });
+    if (!json) return "";
+    const data = JSON.parse(json);
+    const dns: string = data?.Self?.DNSName ?? "";
+    if (!dns) return "";
+    // DNSName has a trailing dot — remove it
+    const host = dns.replace(/\.$/, "");
+    return `http://${host}:${config.webPort}`;
+  } catch {
+    return "";
+  }
 }
 
 export const WEB_SERVER_SESSION = WEB_SESSION;

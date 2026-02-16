@@ -181,14 +181,14 @@ These modules have **no UI dependencies** and can be shared between TUI and web:
 │                                                               │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │               WebSocket Connection                     │  │
-│  │   ws://thornhill-pc.tail-xxxxx.ts.net:3030/terminal    │  │
+│  │   ws://your-machine.tailnet.ts.net:3030/terminal    │  │
 │  └───────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                             │
                             │ Tailscale Tunnel
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 Server (thornhill-pc)                        │
+│                 Server (your-machine)                        │
 │                                                               │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │            SvelteKit Server                            │  │
