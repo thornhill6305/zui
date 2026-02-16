@@ -1,6 +1,6 @@
 {
   "name": "zui-agent-manager",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "TUI and web UI for managing AI coding agents (Claude Code) in tmux sessions",
   "type": "module",
   "workspaces": [
