@@ -1,6 +1,6 @@
 {
   "name": "zui-agent-manager",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "TUI and web UI for managing AI coding agents (Claude Code) in tmux sessions",
   "type": "module",
   "workspaces": [
@@ -35,6 +35,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "ink": "^5.2.0",
+    "ink-text-input": "^6.0.0",
+    "react": "^18.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

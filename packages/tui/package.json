@@ -1,6 +1,6 @@
 {
   "name": "@zui/tui",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "scripts": {
     "build": "tsup --config tsup.config.ts"
