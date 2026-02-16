@@ -2,6 +2,7 @@
 import { existsSync } from "node:fs";
 import type { Config, Session } from "./types.js";
 import { runCommand, runCommandOk } from "./shell.js";
+import { getProvider } from "./agents/index.js";
 
 function tmuxBase(socket: string): string[] {
   return socket ? ["tmux", "-S", socket] : ["tmux"];
@@ -22,6 +23,15 @@ function getOwnSessionName(socket: string): string | null {
     socket,
   );
   return output || null;
+}
+
+function getSessionAgent(name: string, socket: string): string {
+  const output = runTmux(["show-environment", "-t", name, "ZUI_AGENT"], socket);
+  // Output format: "ZUI_AGENT=codex" or error/empty
+  if (output && output.startsWith("ZUI_AGENT=")) {
+    return output.slice("ZUI_AGENT=".length).trim();
+  }
+  return "claude"; // fallback for pre-existing sessions
 }
 
 const INTERNAL_SESSIONS = new Set(["zui-web"]);
@@ -58,8 +68,17 @@ export function getSessions(config: Config, options?: { exclude?: string[]; skip
     const idleSecs = Math.floor(now - lastActivity);
     const idleStr = idleSecs < 60 ? `${idleSecs}s ago` : `${Math.floor(idleSecs / 60)}m ago`;
 
+    const agent = getSessionAgent(name, config.socket);
     const preview = getPreview(name, config.socket);
-    const status = detectStatus(preview);
+
+    let status: Session["status"];
+    try {
+      const provider = getProvider(agent);
+      status = provider.detectStatus(preview);
+    } catch {
+      // Unknown agent — use claude provider as fallback
+      status = getProvider("claude").detectStatus(preview);
+    }
 
     sessions.push({
       name,
@@ -67,6 +86,7 @@ export function getSessions(config: Config, options?: { exclude?: string[]; skip
       idle: idleStr,
       status,
       preview: preview ? preview.slice(0, 80) : "(no output)",
+      agent,
     });
   }
 
@@ -77,7 +97,20 @@ export function spawnSession(
   workdir: string,
   config: Config,
   yolo: boolean = false,
+  options?: { agent?: string },
 ): [boolean, string] {
+  const agentId = options?.agent ?? config.defaultAgent;
+
+  let provider;
+  try {
+    provider = getProvider(agentId);
+  } catch {
+    return [false, `Unknown agent: ${agentId}`];
+  }
+
+  const agentCfg = config.agents[agentId] ?? { defaultArgs: provider.defaultArgs, yoloArgs: provider.yoloArgs };
+  const args = yolo ? agentCfg.yoloArgs : agentCfg.defaultArgs;
+
   const dirName = workdir.replace(/\/+$/, "").split("/").pop()!;
   let branch = "";
   const branchResult = runCommand("git", ["-C", workdir, "branch", "--show-current"]);
@@ -93,15 +126,19 @@ export function spawnSession(
     return [false, `Session ${sessionName} already exists`];
   }
 
-  const args = yolo ? config.yoloArgs : config.defaultArgs;
-  const claudeCmd = args.length ? `claude ${args.join(" ")}` : "claude";
+  const cmd = provider.buildCommand(args);
 
   const ok = runCommandOk(base[0]!, [
     ...base.slice(1),
-    "new-session", "-d", "-s", sessionName, "-c", workdir, claudeCmd,
+    "new-session", "-d", "-s", sessionName, "-c", workdir, cmd,
   ]);
 
-  return ok ? [true, sessionName] : [false, "Failed to create session"];
+  if (!ok) return [false, "Failed to create session"];
+
+  // Tag session with agent ID
+  runTmux(["set-environment", "-t", sessionName, "ZUI_AGENT", agentId], config.socket);
+
+  return [true, sessionName];
 }
 
 export function killSession(name: string, config: Config): boolean {
@@ -176,18 +213,7 @@ function getPreview(session: string, socket: string): string {
   return lines.at(-1)?.trim() ?? "";
 }
 
+/** @deprecated Use provider.detectStatus() instead — kept for backward compat */
 export function detectStatus(preview: string): Session["status"] {
-  const lower = preview.toLowerCase();
-
-  const waitPatterns = ["? ", "allow", "approve", "y/n", "(y)", "press enter", "continue?", "proceed?"];
-  if (waitPatterns.some((p) => lower.includes(p))) return "[WAIT]";
-
-  const errPatterns = ["error:", "failed", "exception", "traceback"];
-  if (errPatterns.some((p) => lower.includes(p))) return "[ERR]";
-
-  if (preview.endsWith(">") || preview.endsWith("$") || (lower.includes("claude") && preview.includes(">"))) {
-    return "[IDLE]";
-  }
-
-  return "[WORK]";
+  return getProvider("claude").detectStatus(preview);
 }

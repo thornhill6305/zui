@@ -41,11 +41,11 @@ export async function fetchProjects(): Promise<void> {
   }
 }
 
-export async function createSession(projectPath: string, yolo: boolean): Promise<string | null> {
+export async function createSession(projectPath: string, yolo: boolean, agent?: string): Promise<string | null> {
   const res = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ project: projectPath, yolo }),
+    body: JSON.stringify({ project: projectPath, yolo, agent }),
   });
   const data = await res.json();
   if (data.ok) {

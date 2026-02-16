@@ -6,9 +6,10 @@ import {
   getSessions, spawnSession, killSession, showSessionInPane,
   getSessionWorkdir, sessionExists, discoverProjects,
   createWorktree, removeWorktree, saveConfig,
-  isWebServerRunning, startWebServer, stopWebServer,
+  isWebServerRunning, startWebServer, stopWebServer, getTailscaleUrl,
+  allProviders,
 } from "@zui/core";
-import { focusRightPane, focusBottomRightPane, closeRightPane, getPaneCount, killBottomRightPane, showLazygitPane, killZuiSession } from "./ui/layout.js";
+import { focusRightPane, focusBottomRightPane, closeRightPane, getPaneCount, killBottomRightPane, showLazygitPane, killZuiSession, toggleZoom } from "./ui/layout.js";
 import { unregisterAltBindings } from "./ui/keybindings.js";
 import { Header } from "./ui/Header.js";
 import { Footer } from "./ui/Footer.js";
@@ -20,12 +21,14 @@ import { InputDialog } from "./ui/InputDialog.js";
 import { ProjectPicker } from "./ui/ProjectPicker.js";
 import { SettingsDialog } from "./ui/SettingsDialog.js";
 import { HelpDialog } from "./ui/HelpDialog.js";
+import { AgentPicker } from "./ui/AgentPicker.js";
 
 type Dialog =
   | { type: "none" }
   | { type: "confirm"; message: string; onConfirm: () => void }
   | { type: "input"; title: string; prompt: string; defaultValue: string; onSubmit: (v: string) => void }
   | { type: "picker"; projects: Project[]; title: string; onSelect: (i: number) => void }
+  | { type: "agentPicker"; onSelect: (agentId: string) => void }
   | { type: "settings" }
   | { type: "help" };
 
@@ -45,6 +48,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
   const [statusMessage, setStatusMessage] = useState("");
   const [dialog, setDialog] = useState<Dialog>({ type: "none" });
   const [webRunning, setWebRunning] = useState(() => isWebServerRunning(initialConfig));
+  const [tailscaleUrl, setTailscaleUrl] = useState("");
 
   // Track terminal resize
   useEffect(() => {
@@ -70,7 +74,13 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
         sessionsRef.current = key;
         setSessions(s);
       }
-      setWebRunning(isWebServerRunning(config));
+      const webUp = isWebServerRunning(config);
+      setWebRunning(webUp);
+      if (webUp && !tailscaleUrl) {
+        setTailscaleUrl(getTailscaleUrl(config));
+      } else if (!webUp) {
+        setTailscaleUrl("");
+      }
     };
     refresh();
     const interval = setInterval(refresh, config.refreshInterval * 1000);
@@ -134,7 +144,9 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
       if (input === "x") { cleanupWorktree(); return; }
       if (input === "g" && sessions.length > 0) { showLazygitFromRemote(); return; }
       if (input === "w") { createWorktreeAction(); return; }
+      if (input === "f") { toggleFullscreen(); return; }
       if (input === "v") { toggleWebServer(); return; }
+      if (input === "a") { toggleDefaultAgent(); return; }
       if (input === "s") { setDialog({ type: "settings" }); return; }
       if (input === "h") { setDialog({ type: "help" }); return; }
       if (input === "c") {
@@ -187,6 +199,8 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     if (input === "x") cleanupWorktree();
     if (input === "g" && sessions.length > 0) toggleLazygit();
     if (input === "w") createWorktreeAction();
+    if (input === "a") toggleDefaultAgent();
+    if (input === "f") toggleFullscreen();
     if (input === "v") toggleWebServer();
     if (input === "s") setDialog({ type: "settings" });
     if (input === "h") setDialog({ type: "help" });
@@ -238,6 +252,33 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     }
   }
 
+  function doSpawn(workdir: string, yolo: boolean, agentId: string) {
+    const [ok, result] = spawnSession(workdir, config, yolo, { agent: agentId });
+    if (ok) {
+      showSessionInPane(result, config);
+      focusRightPane();
+      setStatus(`${yolo ? "YOLO" : "Launched"}: ${result} (${agentId})`);
+    } else {
+      setStatus(result);
+    }
+    setSessions(getSessions(config));
+  }
+
+  function pickAgentThenSpawn(workdir: string, yolo: boolean) {
+    const providers = allProviders();
+    if (providers.length <= 1) {
+      doSpawn(workdir, yolo, config.defaultAgent);
+      return;
+    }
+    setDialog({
+      type: "agentPicker",
+      onSelect: (agentId) => {
+        setDialog({ type: "none" });
+        doSpawn(workdir, yolo, agentId);
+      },
+    });
+  }
+
   function launchSession(yolo: boolean) {
     const refreshedProjects = discoverProjects(config);
     setProjects(refreshedProjects);
@@ -245,26 +286,18 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     if (refreshedProjects.length === 0) {
       setDialog({
         type: "input",
-        title: yolo ? "New YOLO Session" : "New Claude Session",
+        title: yolo ? "New YOLO Session" : "New Session",
         prompt: "Workdir:",
         defaultValue: process.cwd(),
         onSubmit: (workdir) => {
           setDialog({ type: "none" });
-          const [ok, result] = spawnSession(workdir, config, yolo);
-          if (ok) {
-            showSessionInPane(result, config);
-            focusRightPane();
-            setStatus(`${yolo ? "YOLO" : "Launched"}: ${result}`);
-          } else {
-            setStatus(result);
-          }
-          setSessions(getSessions(config));
+          pickAgentThenSpawn(workdir, yolo);
         },
       });
       return;
     }
 
-    const title = yolo ? "YOLO Launch" : "Launch Claude";
+    const title = yolo ? "YOLO Launch" : "Launch Session";
     setDialog({
       type: "picker",
       projects: refreshedProjects,
@@ -283,17 +316,24 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
           return;
         }
 
-        const [ok, result] = spawnSession(proj.path, config, yolo);
-        if (ok) {
-          showSessionInPane(result, config);
-          focusRightPane();
-          setStatus(`${yolo ? "YOLO" : "Launched"}: ${result}`);
-        } else {
-          setStatus(result);
-        }
-        setSessions(getSessions(config));
+        pickAgentThenSpawn(proj.path, yolo);
       },
     });
+  }
+
+  function toggleDefaultAgent() {
+    const providers = allProviders();
+    const currentIdx = providers.findIndex((p) => p.id === config.defaultAgent);
+    const nextIdx = (currentIdx + 1) % providers.length;
+    const next = providers[nextIdx]!;
+    const newConfig = { ...config, defaultAgent: next.id };
+    setConfig(newConfig);
+    try {
+      saveConfig(newConfig);
+    } catch {
+      // ignore save errors for toggle
+    }
+    setStatus(`Default agent: ${next.displayName}`);
   }
 
   function killSessionAction() {
@@ -447,6 +487,14 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     }
   }
 
+  function toggleFullscreen() {
+    if (toggleZoom()) {
+      setStatus("Fullscreen toggled");
+    } else {
+      setStatus("Open a session first");
+    }
+  }
+
   function handleSettingsSave(updates: Partial<Config>) {
     const newConfig = { ...config, ...updates };
     setConfig(newConfig);
@@ -461,7 +509,7 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
 
   return (
     <Box flexDirection="column" height={termSize.rows}>
-      <Header webRunning={webRunning} webPort={config.webPort} />
+      <Header webRunning={webRunning} webPort={config.webPort} tailscaleUrl={tailscaleUrl} defaultAgent={config.defaultAgent} />
 
       {sessions.length === 0 ? (
         <EmptyState />
@@ -500,6 +548,12 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
         <SettingsDialog
           config={config}
           onSave={handleSettingsSave}
+          onCancel={() => setDialog({ type: "none" })}
+        />
+      )}
+      {dialog.type === "agentPicker" && (
+        <AgentPicker
+          onSelect={dialog.onSelect}
           onCancel={() => setDialog({ type: "none" })}
         />
       )}

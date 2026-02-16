@@ -8,17 +8,26 @@ interface Props {
   selectedIndex: number;
 }
 
+function agentBadge(agent: string): { label: string; color: string } {
+  switch (agent) {
+    case "codex": return { label: "Codex", color: "green" };
+    case "claude":
+    default: return { label: "Claude", color: "blue" };
+  }
+}
+
 export function SessionList({ sessions, selectedIndex }: Props): React.ReactElement {
   const { stdout } = useStdout();
   const cols = stdout.columns || 80;
 
   // All widths are explicit — no bare inline Text elements between columns.
-  // index(3) + marker(2) + name + status(7) + running(9) + preview(rest)
+  // index(3) + marker(2) + name + agent(8) + status(7) + running(9) + preview(rest)
   const indexW = 3;
   const markerW = 2;
+  const agentW = 8;
   const statusW = 7; // " [WAIT]" = 7
   const runningW = 9; // " 1h 23m" max ~9
-  const fixedW = indexW + markerW + statusW + runningW;
+  const fixedW = indexW + markerW + agentW + statusW + runningW;
   const flexW = Math.max(cols - fixedW, 16);
   const nameW = Math.min(30, Math.floor(flexW * 0.45));
   const previewW = flexW - nameW;
@@ -31,6 +40,9 @@ export function SessionList({ sessions, selectedIndex }: Props): React.ReactElem
         </Box>
         <Box width={markerW + nameW} flexShrink={0} paddingLeft={2}>
           <Text bold>Session</Text>
+        </Box>
+        <Box width={agentW} flexShrink={0}>
+          <Text bold> Agent</Text>
         </Box>
         <Box width={statusW} flexShrink={0}>
           <Text bold> Status</Text>
@@ -49,6 +61,7 @@ export function SessionList({ sessions, selectedIndex }: Props): React.ReactElem
         const sel = i === selectedIndex;
         const marker = sel ? "> " : "  ";
         const num = String(i + 1).padStart(2);
+        const badge = agentBadge(session.agent);
         return (
           <Box key={session.name} overflow="hidden">
             <Box width={indexW} flexShrink={0}>
@@ -60,6 +73,11 @@ export function SessionList({ sessions, selectedIndex }: Props): React.ReactElem
             <Box width={nameW} flexShrink={0} overflow="hidden">
               <Text bold={sel} inverse={sel} wrap="truncate">
                 {session.name}
+              </Text>
+            </Box>
+            <Box width={agentW} flexShrink={0} overflow="hidden">
+              <Text bold={sel} inverse={sel} color={badge.color} wrap="truncate">
+                {" "}{badge.label}
               </Text>
             </Box>
             <Box width={statusW} flexShrink={0} overflow="hidden">

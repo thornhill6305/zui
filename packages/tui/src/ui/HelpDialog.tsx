@@ -14,14 +14,18 @@ const sections = [
     ["Tab", "Focus right pane (session output)"],
   ] as [string, string][] },
   { title: "Session Management", items: [
-    ["n", "New Claude session (pick project)"],
+    ["n", "New session (pick project + agent)"],
     ["y", "New YOLO session (auto-accept)"],
+    ["a", "Toggle default agent (Claude/Codex)"],
     ["k", "Kill selected session"],
     ["x", "Cleanup worktree"],
   ] as [string, string][] },
   { title: "Git & Worktrees", items: [
     ["g", "Toggle lazygit pane"],
     ["w", "Create new worktree"],
+  ] as [string, string][] },
+  { title: "Layout", items: [
+    ["f", "Toggle fullscreen (zoom session pane)"],
   ] as [string, string][] },
   { title: "CLI Commands", items: [
     ["zui <N>", "Attach to Nth session"],
@@ -42,6 +46,7 @@ const sections = [
     ["Alt+k", "Kill selected session"],
     ["Alt+g", "Show + focus lazygit"],
     ["Alt+w", "Create worktree"],
+    ["Alt+f", "Toggle fullscreen"],
     ["Alt+c", "Close right pane"],
     ["Alt+q", "Quit ZUI"],
   ] as [string, string][] },

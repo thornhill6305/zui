@@ -54,6 +54,19 @@ export function focusBottomRightPane(): void {
   runCommand("tmux", ["select-pane", "-t", "{bottom-right}"]);
 }
 
+export function isWindowZoomed(): boolean {
+  const result = runCommand("tmux", ["display-message", "-p", "#{window_zoomed_flag}"]);
+  return result.trim() === "1";
+}
+
+export function toggleZoom(): boolean {
+  if (isWindowZoomed()) {
+    return runCommandOk("tmux", ["resize-pane", "-Z"]);
+  }
+  if (getPaneCount() < 2) return false;
+  return runCommandOk("tmux", ["resize-pane", "-Z", "-t", "{right}"]);
+}
+
 export function killZuiSession(): void {
   runCommand("tmux", ["kill-session", "-t", "zui-manager"]);
 }
