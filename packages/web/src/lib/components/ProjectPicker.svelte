@@ -10,6 +10,7 @@
   let { onCreated }: Props = $props();
   let search = $state('');
   let yolo = $state(false);
+  let agent = $state('claude');
   let creating = $state(false);
 
   let filtered = $derived(
@@ -24,6 +25,7 @@
       fetchProjects();
       search = '';
       yolo = false;
+      agent = 'claude';
     }
   });
 
@@ -33,7 +35,7 @@
 
   async function pick(project: Project) {
     creating = true;
-    const sessionName = await createSession(project.path, yolo);
+    const sessionName = await createSession(project.path, yolo, agent);
     creating = false;
     close();
     if (sessionName) onCreated?.(sessionName);
@@ -62,6 +64,14 @@
         bind:value={search}
         autofocus
       />
+
+      <div class="agent-select">
+        <label class="agent-label">Agent:</label>
+        <select bind:value={agent}>
+          <option value="claude">Claude Code</option>
+          <option value="codex">Codex CLI</option>
+        </select>
+      </div>
 
       <label class="yolo-toggle">
         <input type="checkbox" bind:checked={yolo} />
@@ -156,6 +166,34 @@
   }
 
   .search:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  .agent-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 16px 4px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .agent-label {
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  .agent-select select {
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 13px;
+  }
+
+  .agent-select select:focus {
     border-color: var(--accent);
     outline: none;
   }

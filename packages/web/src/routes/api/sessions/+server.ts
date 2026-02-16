@@ -10,7 +10,7 @@ export const GET: RequestHandler = async () => {
 
 export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json();
-  const { project, yolo } = body as { project?: string; yolo?: boolean };
+  const { project, yolo, agent } = body as { project?: string; yolo?: boolean; agent?: string };
 
   if (!project || typeof project !== 'string') {
     return json({ ok: false, error: 'Missing project path' }, { status: 400 });
@@ -25,7 +25,9 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ ok: false, error: 'Unknown project' }, { status: 400 });
   }
 
-  const [ok, result] = spawnSession(project, config, yolo ?? false);
+  const [ok, result] = spawnSession(project, config, yolo ?? false, {
+    agent: typeof agent === 'string' ? agent : undefined,
+  });
   if (!ok) {
     return json({ ok: false, error: result }, { status: 409 });
   }

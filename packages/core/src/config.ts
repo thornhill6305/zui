@@ -3,20 +3,32 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
-import type { Config, ProjectConfig } from "./types.js";
+import type { Config, ProjectConfig, AgentConfig } from "./types.js";
+import { claudeProvider } from "./agents/claude.js";
+import { codexProvider } from "./agents/codex.js";
 
 const CONFIG_PATHS = [
   join(homedir(), ".config", "zui", "config.toml"),
   join(homedir(), ".zui.toml"),
 ];
 
+function defaultAgents(): Record<string, AgentConfig> {
+  return {
+    claude: { defaultArgs: claudeProvider.defaultArgs, yoloArgs: claudeProvider.yoloArgs },
+    codex: { defaultArgs: codexProvider.defaultArgs, yoloArgs: codexProvider.yoloArgs },
+  };
+}
+
 export function defaultConfig(): Config {
+  const agents = defaultAgents();
   return {
     socket: "",
     projects: [],
     scanDirs: [],
-    defaultArgs: [],
-    yoloArgs: ["--dangerously-skip-permissions"],
+    defaultAgent: "claude",
+    agents,
+    defaultArgs: agents.claude!.defaultArgs,
+    yoloArgs: agents.claude!.yoloArgs,
     hookPostWorktreeCreate: "",
     refreshInterval: 2,
     layoutRightWidth: 70,
@@ -51,6 +63,7 @@ function parseConfigFile(path: string): Config {
 
   if (typeof data.socket === "string") cfg.socket = data.socket;
   if (typeof data.refresh_interval === "number") cfg.refreshInterval = data.refresh_interval;
+  if (typeof data.default_agent === "string") cfg.defaultAgent = data.default_agent;
 
   const layout = data.layout as Record<string, unknown> | undefined;
   if (layout && typeof layout === "object") {
@@ -58,10 +71,39 @@ function parseConfigFile(path: string): Config {
     if (typeof layout.lazygit_height === "number") cfg.layoutLazygitHeight = layout.lazygit_height;
   }
 
+  // New agents section
+  const agents = data.agents as Record<string, unknown> | undefined;
+  if (agents && typeof agents === "object") {
+    for (const [agentId, agentData] of Object.entries(agents)) {
+      if (agentData && typeof agentData === "object") {
+        const ad = agentData as Record<string, unknown>;
+        const existing = cfg.agents[agentId] ?? { defaultArgs: [], yoloArgs: [] };
+        if (Array.isArray(ad.default_args)) existing.defaultArgs = ad.default_args as string[];
+        if (Array.isArray(ad.yolo_args)) existing.yoloArgs = ad.yolo_args as string[];
+        cfg.agents[agentId] = existing;
+      }
+    }
+  }
+
+  // Legacy migration: if [claude] exists but [agents] was not in TOML, migrate
   const claude = data.claude as Record<string, unknown> | undefined;
   if (claude && typeof claude === "object") {
+    if (!agents) {
+      // Auto-migrate old [claude] → [agents.claude]
+      const claudeAgent = cfg.agents.claude ?? { defaultArgs: [], yoloArgs: [...claudeProvider.yoloArgs] };
+      if (Array.isArray(claude.default_args)) claudeAgent.defaultArgs = claude.default_args as string[];
+      if (Array.isArray(claude.yolo_args)) claudeAgent.yoloArgs = claude.yolo_args as string[];
+      cfg.agents.claude = claudeAgent;
+    }
+    // Also populate deprecated top-level fields for backward compat
     if (Array.isArray(claude.default_args)) cfg.defaultArgs = claude.default_args as string[];
     if (Array.isArray(claude.yolo_args)) cfg.yoloArgs = claude.yolo_args as string[];
+  }
+
+  // Sync deprecated top-level fields from agents.claude
+  if (cfg.agents.claude) {
+    cfg.defaultArgs = cfg.agents.claude.defaultArgs;
+    cfg.yoloArgs = cfg.agents.claude.yoloArgs;
   }
 
   const cleanup = data.cleanup as Record<string, unknown> | undefined;
@@ -122,6 +164,17 @@ export function saveConfig(cfg: Config, savePath?: string): void {
 
   existing.socket = cfg.socket;
   existing.refresh_interval = cfg.refreshInterval;
+  existing.default_agent = cfg.defaultAgent;
+
+  // Write agents section
+  const agentsSection: Record<string, unknown> = {};
+  for (const [agentId, agentCfg] of Object.entries(cfg.agents)) {
+    agentsSection[agentId] = {
+      default_args: agentCfg.defaultArgs,
+      yolo_args: agentCfg.yoloArgs,
+    };
+  }
+  existing.agents = agentsSection;
 
   const layout = (typeof existing.layout === "object" && existing.layout !== null
     ? existing.layout : {}) as Record<string, unknown>;

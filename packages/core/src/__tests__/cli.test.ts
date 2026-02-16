@@ -9,6 +9,7 @@ function makeSession(name: string, overrides?: Partial<Session>): Session {
     idle: "10s ago",
     status: "[WORK]",
     preview: "Working on something...",
+    agent: "claude",
     ...overrides,
   };
 }
