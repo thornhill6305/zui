@@ -2,8 +2,6 @@
 
 A terminal UI and web UI for managing AI coding agents ([Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://github.com/openai/codex)) running in tmux sessions.
 
-<img width="1728" height="1087" alt="image" src="https://github.com/user-attachments/assets/edfcb7fe-b18f-49a4-a385-e2d76bfb1a8f" />
-
 ## Features
 
 - **Split-pane TUI** — session list on the left, live agent output on the right
