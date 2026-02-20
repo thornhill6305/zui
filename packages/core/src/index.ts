@@ -9,7 +9,6 @@ export {
   getSessionWorkdir,
   sessionExists,
   formatDuration,
-  detectStatus,
 } from "./sessions.js";
 export {
   startWebServer, stopWebServer, isWebServerRunning, getWebServerUrl,

@@ -21,15 +21,14 @@ export function SessionList({ sessions, selectedIndex }: Props): React.ReactElem
   const cols = stdout.columns || 80;
 
   // All widths are explicit — no bare inline Text elements between columns.
-  // index(3) + marker(2) + name + agent(8) + status(7) + running(9) + preview(rest)
+  // index(3) + marker(2) + name + agent(8) + status(7) + preview(rest)
   const indexW = 3;
   const markerW = 2;
   const agentW = 8;
   const statusW = 7; // " [WAIT]" = 7
-  const runningW = 9; // " 1h 23m" max ~9
-  const fixedW = indexW + markerW + agentW + statusW + runningW;
+  const fixedW = indexW + markerW + agentW + statusW;
   const flexW = Math.max(cols - fixedW, 16);
-  const nameW = Math.min(30, Math.floor(flexW * 0.45));
+  const nameW = Math.min(30, Math.floor(flexW * 0.4));
   const previewW = flexW - nameW;
 
   return (
@@ -46,9 +45,6 @@ export function SessionList({ sessions, selectedIndex }: Props): React.ReactElem
         </Box>
         <Box width={statusW} flexShrink={0}>
           <Text bold> Status</Text>
-        </Box>
-        <Box width={runningW} flexShrink={0}>
-          <Text bold> Running</Text>
         </Box>
         <Box width={previewW} flexShrink={0} overflow="hidden">
           <Text bold> Preview</Text>
@@ -83,11 +79,6 @@ export function SessionList({ sessions, selectedIndex }: Props): React.ReactElem
             <Box width={statusW} flexShrink={0} overflow="hidden">
               <Text bold={sel} inverse={sel} color={statusColor(session.status)} wrap="truncate">
                 {" "}{session.status}
-              </Text>
-            </Box>
-            <Box width={runningW} flexShrink={0} overflow="hidden">
-              <Text bold={sel} inverse={sel} wrap="truncate">
-                {" "}{session.running}
               </Text>
             </Box>
             <Box width={previewW} flexShrink={0} overflow="hidden">

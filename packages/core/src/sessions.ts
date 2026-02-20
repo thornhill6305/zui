@@ -69,16 +69,9 @@ export function getSessions(config: Config, options?: { exclude?: string[]; skip
     const idleStr = idleSecs < 60 ? `${idleSecs}s ago` : `${Math.floor(idleSecs / 60)}m ago`;
 
     const agent = getSessionAgent(name, config.socket);
-    const preview = getPreview(name, config.socket);
-
-    let status: Session["status"];
-    try {
-      const provider = getProvider(agent);
-      status = provider.detectStatus(preview);
-    } catch {
-      // Unknown agent — use claude provider as fallback
-      status = getProvider("claude").detectStatus(preview);
-    }
+    const paneLines = capturePaneLines(name, config.socket);
+    const preview = extractPreview(paneLines);
+    const status = detectStatusFromPane(paneLines);
 
     sessions.push({
       name,
@@ -207,13 +200,16 @@ export function formatDuration(secs: number): string {
   return `${h}h ${m}m`;
 }
 
-function getPreview(session: string, socket: string): string {
+function capturePaneLines(session: string, socket: string): string[] {
   const output = runTmux(
     ["capture-pane", "-p", "-t", session, "-S", "-50"],
     socket,
   );
-  if (!output) return "";
-  const lines = output.split("\n").filter((l) => l.trim());
+  if (!output) return [];
+  return output.split("\n").filter((l) => l.trim());
+}
+
+function extractPreview(lines: string[]): string {
   if (lines.length === 0) return "";
 
   // Find Claude's last text message: "● text" but not "● ToolName(...)"
@@ -229,7 +225,16 @@ function getPreview(session: string, socket: string): string {
   return lines.at(-1)?.trim() ?? "";
 }
 
-/** @deprecated Use provider.detectStatus() instead — kept for backward compat */
-export function detectStatus(preview: string): Session["status"] {
-  return getProvider("claude").detectStatus(preview);
+function detectStatusFromPane(lines: string[]): Session["status"] {
+  // Active actions end with … (ellipsis). Completed ones use ✻ without ellipsis.
+  // e.g. "✽ Imagining…" = working, "✻ Imagined" = done
+  const tail = lines.slice(-10);
+  for (let i = tail.length - 1; i >= 0; i--) {
+    const text = tail[i]!.trim();
+    // Active spinner line: any symbol + word + ellipsis
+    if (/^[^\w\s]\s+\S+…/.test(text)) return "[WORK]";
+    // Completed action line: ✻ = done, check next
+    if (/^✻\s/.test(text)) return "[IDLE]";
+  }
+  return "[IDLE]";
 }
