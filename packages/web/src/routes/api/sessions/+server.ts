@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { getSessions, spawnSession, loadConfig, discoverProjects } from '@zui/core';
+import { existsSync, statSync } from 'node:fs';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
@@ -18,11 +19,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
   const config = loadConfig();
 
-  // Validate that the project path exists in discovered projects
+  // Accept discovered projects or any existing directory
   const projects = discoverProjects(config);
   const match = projects.find((p) => p.path === project);
   if (!match) {
-    return json({ ok: false, error: 'Unknown project' }, { status: 400 });
+    if (!existsSync(project) || !statSync(project).isDirectory()) {
+      return json({ ok: false, error: 'Path is not a valid directory' }, { status: 400 });
+    }
   }
 
   const [ok, result] = spawnSession(project, config, yolo ?? false, {

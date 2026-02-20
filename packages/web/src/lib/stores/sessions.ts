@@ -93,6 +93,16 @@ export async function createWorktreeAndSession(
   return sessionName;
 }
 
+export async function fetchBrowseSuggestions(path: string): Promise<string[]> {
+  try {
+    const res = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
 export async function removeWorktree(
   parentRepo: string,
   worktreePath: string,

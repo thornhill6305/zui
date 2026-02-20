@@ -8,16 +8,24 @@ interface Props {
   title?: string;
   onSelect: (index: number) => void;
   onCancel: () => void;
+  onBrowse?: () => void;
 }
 
-export function ProjectPicker({ projects, title = "Select Project", onSelect, onCancel }: Props): React.ReactElement {
+export function ProjectPicker({ projects, title = "Select Project", onSelect, onCancel, onBrowse }: Props): React.ReactElement {
   const [selected, setSelected] = useState(0);
+  const maxIndex = onBrowse ? projects.length : projects.length - 1;
 
   useInput((input, key) => {
     if (key.escape) onCancel();
     if (key.upArrow) setSelected((s) => Math.max(0, s - 1));
-    if (key.downArrow) setSelected((s) => Math.min(projects.length - 1, s + 1));
-    if (key.return) onSelect(selected);
+    if (key.downArrow) setSelected((s) => Math.min(maxIndex, s + 1));
+    if (key.return) {
+      if (onBrowse && selected === projects.length) {
+        onBrowse();
+      } else {
+        onSelect(selected);
+      }
+    }
   });
 
   return (
@@ -33,6 +41,14 @@ export function ProjectPicker({ projects, title = "Select Project", onSelect, on
           </Text>
         </Box>
       ))}
+      {onBrowse && (
+        <Box>
+          <Text bold={selected === projects.length} color={selected === projects.length ? "cyan" : undefined}>
+            {selected === projects.length ? "> " : "  "}
+            [Browse folder...]
+          </Text>
+        </Box>
+      )}
       <Text> </Text>
       <Text dimColor>Up/Down: Pick | Enter: Select | Esc: Cancel</Text>
     </Box>

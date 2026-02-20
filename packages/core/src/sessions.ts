@@ -123,7 +123,11 @@ export function spawnSession(
 
   const base = tmuxBase(config.socket);
   if (runCommandOk(base[0]!, [...base.slice(1), "has-session", "-t", sessionName])) {
-    return [false, `Session ${sessionName} already exists`];
+    let suffix = 2;
+    while (runCommandOk(base[0]!, [...base.slice(1), "has-session", "-t", `${sessionName}-${suffix}`])) {
+      suffix++;
+    }
+    sessionName = `${sessionName}-${suffix}`;
   }
 
   const cmd = provider.buildCommand(args);
@@ -205,11 +209,23 @@ export function formatDuration(secs: number): string {
 
 function getPreview(session: string, socket: string): string {
   const output = runTmux(
-    ["capture-pane", "-p", "-t", session, "-S", "-5"],
+    ["capture-pane", "-p", "-t", session, "-S", "-50"],
     socket,
   );
   if (!output) return "";
   const lines = output.split("\n").filter((l) => l.trim());
+  if (lines.length === 0) return "";
+
+  // Find Claude's last text message: "● text" but not "● ToolName(...)"
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const text = lines[i]!.trim();
+    const match = text.match(/^●\s+(.+)/);
+    if (match && !/^\w+\(/.test(match[1]!)) {
+      return match[1]!.trim().slice(0, 80);
+    }
+  }
+
+  // Fallback: last non-empty line
   return lines.at(-1)?.trim() ?? "";
 }
 

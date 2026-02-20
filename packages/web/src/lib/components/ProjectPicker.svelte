@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Project } from '@zui/core';
-  import { projects, fetchProjects, createSession } from '$lib/stores/sessions';
+  import { projects, fetchProjects, createSession, fetchBrowseSuggestions } from '$lib/stores/sessions';
   import { projectPickerOpen } from '$lib/stores/ui';
 
   interface Props {
@@ -12,6 +12,10 @@
   let yolo = $state(false);
   let agent = $state('claude');
   let creating = $state(false);
+  let browsing = $state(false);
+  let browsePath = $state('');
+  let suggestions = $state<string[]>([]);
+  let browseError = $state('');
 
   let filtered = $derived(
     $projects.filter((p) => {
@@ -20,13 +24,28 @@
     }),
   );
 
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
   $effect(() => {
     if ($projectPickerOpen) {
       fetchProjects();
       search = '';
       yolo = false;
       agent = 'claude';
+      browsing = false;
+      browsePath = '';
+      suggestions = [];
+      browseError = '';
     }
+  });
+
+  $effect(() => {
+    if (!browsing) return;
+    const path = browsePath;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(async () => {
+      suggestions = await fetchBrowseSuggestions(path || '~/');
+    }, 150);
   });
 
   function close() {
@@ -41,8 +60,33 @@
     if (sessionName) onCreated?.(sessionName);
   }
 
+  async function submitBrowsePath() {
+    const path = browsePath.trim();
+    if (!path) return;
+    creating = true;
+    browseError = '';
+    const sessionName = await createSession(path, yolo, agent);
+    creating = false;
+    if (sessionName) {
+      close();
+      onCreated?.(sessionName);
+    } else {
+      browseError = 'Invalid directory or session failed to create';
+    }
+  }
+
+  function pickSuggestion(path: string) {
+    browsePath = path + '/';
+  }
+
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') close();
+    if (e.key === 'Escape') {
+      if (browsing) {
+        browsing = false;
+      } else {
+        close();
+      }
+    }
   }
 </script>
 
@@ -52,52 +96,116 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="dialog" onclick={(e) => e.stopPropagation()} onkeydown={handleKeydown}>
       <div class="dialog-header">
-        <h2>New Session</h2>
+        <h2>{browsing ? 'Browse Folder' : 'New Session'}</h2>
         <button class="close-btn" onclick={close}>✕</button>
       </div>
 
-      <!-- svelte-ignore a11y_autofocus -->
-      <input
-        type="text"
-        class="search"
-        placeholder="Search projects…"
-        bind:value={search}
-        autofocus
-      />
+      {#if browsing}
+        <div class="browse-input-row">
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            type="text"
+            class="search"
+            placeholder="Enter folder path…"
+            bind:value={browsePath}
+            autofocus
+            onkeydown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                submitBrowsePath();
+              }
+            }}
+          />
+        </div>
 
-      <div class="agent-select">
-        <label class="agent-label">Agent:</label>
-        <select bind:value={agent}>
-          <option value="claude">Claude Code</option>
-          <option value="codex">Codex CLI</option>
-        </select>
-      </div>
+        <div class="agent-select">
+          <label class="agent-label">Agent:</label>
+          <select bind:value={agent}>
+            <option value="claude">Claude Code</option>
+            <option value="codex">Codex CLI</option>
+          </select>
+        </div>
 
-      <label class="yolo-toggle">
-        <input type="checkbox" bind:checked={yolo} />
-        <span>YOLO mode (auto-approve)</span>
-      </label>
+        <label class="yolo-toggle">
+          <input type="checkbox" bind:checked={yolo} />
+          <span>YOLO mode (auto-approve)</span>
+        </label>
 
-      <div class="project-list">
-        {#each filtered as project}
-          <button
-            class="project-item"
-            onclick={() => pick(project)}
-            disabled={creating}
-          >
-            <span class="project-name">{project.name}</span>
-            {#if project.branch && project.branch !== project.name}
-              <span class="project-branch">{project.branch}</span>
-            {/if}
-            <span class="project-path">{project.path}</span>
-            {#if project.isWorktree}
-              <span class="wt-badge">worktree</span>
-            {/if}
+        {#if browseError}
+          <div class="browse-error">{browseError}</div>
+        {/if}
+
+        <div class="project-list">
+          {#each suggestions as path}
+            <button
+              class="project-item"
+              onclick={() => pickSuggestion(path)}
+              disabled={creating}
+            >
+              <span class="project-name">{path.split('/').pop()}/</span>
+              <span class="project-path">{path}</span>
+            </button>
+          {:else}
+            <div class="empty">No directories found</div>
+          {/each}
+        </div>
+
+        <div class="browse-footer">
+          <button class="back-btn" onclick={() => (browsing = false)}>Back</button>
+          <button class="submit-btn" onclick={submitBrowsePath} disabled={creating || !browsePath.trim()}>
+            {creating ? 'Creating…' : 'Launch'}
           </button>
-        {:else}
-          <div class="empty">No projects found</div>
-        {/each}
-      </div>
+        </div>
+      {:else}
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          type="text"
+          class="search"
+          placeholder="Search projects…"
+          bind:value={search}
+          autofocus
+        />
+
+        <div class="agent-select">
+          <label class="agent-label">Agent:</label>
+          <select bind:value={agent}>
+            <option value="claude">Claude Code</option>
+            <option value="codex">Codex CLI</option>
+          </select>
+        </div>
+
+        <label class="yolo-toggle">
+          <input type="checkbox" bind:checked={yolo} />
+          <span>YOLO mode (auto-approve)</span>
+        </label>
+
+        <div class="project-list">
+          {#each filtered as project}
+            <button
+              class="project-item"
+              onclick={() => pick(project)}
+              disabled={creating}
+            >
+              <span class="project-name">{project.name}</span>
+              {#if project.branch && project.branch !== project.name}
+                <span class="project-branch">{project.branch}</span>
+              {/if}
+              <span class="project-path">{project.path}</span>
+              {#if project.isWorktree}
+                <span class="wt-badge">worktree</span>
+              {/if}
+            </button>
+          {:else}
+            <div class="empty">No projects found</div>
+          {/each}
+          <button
+            class="project-item browse-item"
+            onclick={() => (browsing = true)}
+          >
+            <span class="browse-label">Browse folder…</span>
+          </button>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -168,6 +276,15 @@
   .search:focus {
     border-color: var(--accent);
     outline: none;
+  }
+
+  .browse-input-row {
+    display: flex;
+    align-items: center;
+  }
+
+  .browse-input-row .search {
+    flex: 1;
   }
 
   .agent-select {
@@ -276,5 +393,63 @@
     text-align: center;
     color: var(--text-muted);
     font-size: 13px;
+  }
+
+  .browse-item {
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 12px;
+  }
+
+  .browse-label {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .browse-error {
+    padding: 4px 16px;
+    font-size: 12px;
+    color: var(--error, #e55);
+  }
+
+  .browse-footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    gap: 8px;
+  }
+
+  .back-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    min-height: 44px;
+  }
+
+  .back-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .submit-btn {
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--accent);
+    color: var(--bg-primary);
+    min-height: 44px;
+  }
+
+  .submit-btn:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

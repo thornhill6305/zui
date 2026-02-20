@@ -4,7 +4,7 @@ import { Box, useApp, useInput, useStdout } from "ink";
 import type { Config, Session, Project } from "@zui/core";
 import {
   getSessions, spawnSession, killSession, showSessionInPane,
-  getSessionWorkdir, sessionExists, discoverProjects,
+  getSessionWorkdir, discoverProjects,
   createWorktree, removeWorktree, saveConfig,
   isWebServerRunning, startWebServer, stopWebServer, getTailscaleUrl,
   allProviders,
@@ -19,6 +19,7 @@ import { StatusMessage } from "./ui/StatusMessage.js";
 import { ConfirmDialog } from "./ui/ConfirmDialog.js";
 import { InputDialog } from "./ui/InputDialog.js";
 import { ProjectPicker } from "./ui/ProjectPicker.js";
+import { FolderBrowser } from "./ui/FolderBrowser.js";
 import { SettingsDialog } from "./ui/SettingsDialog.js";
 import { HelpDialog } from "./ui/HelpDialog.js";
 import { AgentPicker } from "./ui/AgentPicker.js";
@@ -27,7 +28,8 @@ type Dialog =
   | { type: "none" }
   | { type: "confirm"; message: string; onConfirm: () => void }
   | { type: "input"; title: string; prompt: string; defaultValue: string; onSubmit: (v: string) => void }
-  | { type: "picker"; projects: Project[]; title: string; onSelect: (i: number) => void }
+  | { type: "picker"; projects: Project[]; title: string; onSelect: (i: number) => void; onBrowse?: () => void }
+  | { type: "folderBrowser"; title: string; onSubmit: (path: string) => void }
   | { type: "agentPicker"; onSelect: (agentId: string) => void }
   | { type: "settings" }
   | { type: "help" };
@@ -279,21 +281,24 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
     });
   }
 
+  function openFolderBrowser(yolo: boolean) {
+    const title = yolo ? "YOLO — Browse Folder" : "Browse Folder";
+    setDialog({
+      type: "folderBrowser",
+      title,
+      onSubmit: (path) => {
+        setDialog({ type: "none" });
+        pickAgentThenSpawn(path, yolo);
+      },
+    });
+  }
+
   function launchSession(yolo: boolean) {
     const refreshedProjects = discoverProjects(config);
     setProjects(refreshedProjects);
 
     if (refreshedProjects.length === 0) {
-      setDialog({
-        type: "input",
-        title: yolo ? "New YOLO Session" : "New Session",
-        prompt: "Workdir:",
-        defaultValue: process.cwd(),
-        onSubmit: (workdir) => {
-          setDialog({ type: "none" });
-          pickAgentThenSpawn(workdir, yolo);
-        },
-      });
+      openFolderBrowser(yolo);
       return;
     }
 
@@ -305,19 +310,9 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
       onSelect: (idx) => {
         setDialog({ type: "none" });
         const proj = refreshedProjects[idx]!;
-
-        const branch = proj.branch ? proj.branch.replace(/\//g, "-") : "";
-        const candidate = branch ? `${proj.name}-${branch}` : proj.name;
-        if (sessionExists(candidate, config)) {
-          showSessionInPane(candidate, config);
-          focusRightPane();
-          setStatus(`Showing: ${candidate}`);
-          setSessions(getSessions(config));
-          return;
-        }
-
         pickAgentThenSpawn(proj.path, yolo);
       },
+      onBrowse: () => openFolderBrowser(yolo),
     });
   }
 
@@ -541,6 +536,14 @@ export function App({ config: initialConfig, initialFocus }: AppProps): React.Re
           projects={dialog.projects}
           title={dialog.title}
           onSelect={dialog.onSelect}
+          onCancel={() => setDialog({ type: "none" })}
+          onBrowse={dialog.onBrowse}
+        />
+      )}
+      {dialog.type === "folderBrowser" && (
+        <FolderBrowser
+          title={dialog.title}
+          onSubmit={dialog.onSubmit}
           onCancel={() => setDialog({ type: "none" })}
         />
       )}
